@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FitScan — カロリー管理 & 筋トレ</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FitScan">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="theme-color" content="#0F1B2D">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0F1B2D;
+    --bg2: #152236;
+    --bg3: #1C2E45;
+    --card: #1A2B40;
+    --card2: #20344E;
+    --green: #00E5A0;
+    --green-dim: #00b87d;
+    --orange: #FF6B35;
+    --blue: #4A9EFF;
+    --white: #F0F4F8;
+    --gray: #7A90A8;
+    --gray2: #4A6180;
+    --border: #253A55;
+    --red: #FF4D6A;
+    --yellow: #FFD166;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    /* iPhoneのセーフエリア対応 */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+    color: var(--white);
+  }
+  .logo span { color: var(--green); }
+
+  /* ── NAV TABS ── */
+  nav {
+    display: flex; gap: 4px;
+    background: var(--bg3);
+    border-radius: 10px; padding: 4px;
+  }
+  nav button {
+    background: none; border: none; cursor: pointer;
+    color: var(--gray); font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 500;
+    padding: 7px 14px; border-radius: 7px;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  nav button.active {
+    background: var(--card2); color: var(--white);
+  }
+  nav button:hover:not(.active) { color: var(--white); }
+
+  /* ── VIEWS ── */
+  .view { display: none; padding: 24px; max-width: 860px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--gray);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; text-align: center;
+  }
+  .stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px; font-weight: 600; color: var(--white); line-height: 1;
+  }
+  .stat-val.green { color: var(--green); }
+  .stat-val.orange { color: var(--orange); }
+  .stat-val.blue { color: var(--blue); }
+  .stat-label { font-size: 11px; color: var(--gray); margin-top: 5px; font-weight: 500; }
+
+  /* ── CALORIE RING ── */
+  .calorie-center {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  }
+  .ring-wrap { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-center {
+    position: absolute; inset: 0; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-kcal { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; color: var(--white); }
+  .ring-sub { font-size: 9px; color: var(--gray); }
+  .macro-bars { flex: 1; min-width: 180px; }
+  .macro-row { margin-bottom: 10px; }
+  .macro-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .macro-label span:first-child { color: var(--gray); }
+  .macro-label span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--white); font-size: 11px; }
+  .bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+
+  /* ── FOOD INPUT ── */
+  .input-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .inp {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--white); font-family: 'Inter', sans-serif;
+    font-size: 14px; border-radius: 10px; padding: 11px 14px;
+    outline: none; transition: border .2s;
+  }
+  .inp:focus { border-color: var(--green); }
+  .inp::placeholder { color: var(--gray2); }
+  .btn {
+    background: var(--green); color: #000; border: none; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+    border-radius: 10px; padding: 11px 18px; transition: all .2s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--green-dim); }
+  .btn-sec {
+    background: var(--bg3); color: var(--white); border: 1px solid var(--border);
+  }
+  .btn-sec:hover { border-color: var(--green); color: var(--green); background: var(--bg3); }
+  .btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 14px;
+    padding: 32px; text-align: center; cursor: pointer;
+    transition: all .2s; position: relative; overflow: hidden;
+  }
+  .upload-zone:hover { border-color: var(--green); background: rgba(0,229,160,.04); }
+  .upload-zone input[type=file] { display:none; }
+  .upload-icon { font-size: 36px; margin-bottom: 8px; }
+  .upload-text { color: var(--gray); font-size: 13px; }
+  .upload-text strong { color: var(--green); }
+
+  /* ── SCAN ANIMATION ── */
+  .scan-overlay {
+    position: absolute; inset: 0; background: rgba(0,229,160,.08);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+  }
+  .scan-overlay.active { display: flex; }
+  .scan-line {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    animation: scanMove 1.5s ease-in-out infinite;
+  }
+  @keyframes scanMove {
+    0% { top: 10%; }
+    100% { top: 90%; }
+  }
+  .scan-text { color: var(--green); font-size: 13px; font-weight: 600; z-index: 1; }
+
+  /* ── MEAL TABS ── */
+  .meal-tabs {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    margin-bottom: 16px;
+  }
+  .meal-tab {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--gray); font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600; border-radius: 10px;
+    padding: 9px 6px; cursor: pointer; transition: all .2s;
+    text-align: center; display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+  }
+  .meal-tab .meal-tab-icon { font-size: 18px; }
+  .meal-tab .meal-tab-kcal {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--gray2);
+  }
+  .meal-tab.active { background: var(--card2); color: var(--white); border-color: var(--green); }
+  .meal-tab.active .meal-tab-kcal { color: var(--green); }
+  .meal-tab:hover:not(.active) { border-color: var(--gray2); color: var(--white); }
+
+  /* ── FOOD LIST ── */
+  .food-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; background: var(--bg3);
+    border-radius: 10px; margin-bottom: 8px;
+  }
+  .food-icon { font-size: 22px; width: 36px; text-align: center; flex-shrink: 0; }
+  .food-name { font-size: 14px; font-weight: 500; flex: 1; }
+  .food-kcal { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--orange); font-weight: 600; }
+  .food-del { background: none; border: none; color: var(--gray2); cursor: pointer; font-size: 16px; padding: 4px; }
+  .food-del:hover { color: var(--red); }
+
+  .meal-section { display: none; }
+  .meal-section.active { display: block; }
+
+  /* ── MODE TOGGLE ── */
+  .mode-btn {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--gray); font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600; border-radius: 10px;
+    padding: 9px 8px; cursor: pointer; transition: all .2s;
+  }
+  .mode-btn.active {
+    background: var(--card2); color: var(--white); border-color: var(--green);
+  }
+  .mode-btn:hover:not(.active) { color: var(--white); }
+
+  /* ── SUGGESTIONS ── */
+  .suggestions-box {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; margin-top: 4px; overflow: hidden;
+    max-height: 220px; overflow-y: auto;
+  }
+  .suggestion-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; cursor: pointer; transition: background .15s;
+    border-bottom: 1px solid var(--border);
+  }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:hover { background: var(--card2); }
+  .suggestion-name { font-size: 14px; }
+  .suggestion-kcal {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--orange); font-weight: 600; white-space: nowrap; margin-left: 8px;
+  }
+
+  /* ── SEARCH RESULT PREVIEW ── */
+  .result-item-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .result-item-left { display: flex; align-items: center; gap: 8px; }
+  .result-item-name { font-size: 14px; }
+  .result-item-kcal {
+    font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    color: var(--orange); font-weight: 700;
+  }
+  .result-kcal-edit {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--white); font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; border-radius: 6px; padding: 4px 8px;
+    width: 80px; text-align: right;
+  }
+  .result-kcal-edit:focus { outline: none; border-color: var(--green); }
+  .result-total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0 6px; font-weight: 700;
+  }
+  .meal-summary {
+    margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px;
+  }
+  .meal-total-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; background: rgba(0,229,160,.07);
+    border: 1px solid rgba(0,229,160,.25); border-radius: 10px; margin-bottom: 10px;
+  }
+  .meal-total-label { font-size: 13px; font-weight: 700; color: var(--green); }
+  .meal-total-kcal {
+    font-family: 'JetBrains Mono', monospace; font-size: 18px;
+    font-weight: 700; color: var(--green);
+  }
+  .meal-advice-box {
+    background: linear-gradient(135deg, rgba(74,158,255,.08), rgba(0,229,160,.05));
+    border: 1px solid rgba(74,158,255,.3); border-radius: 10px; padding: 12px 14px;
+  }
+  .meal-advice-header {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 6px;
+  }
+  .meal-advice-badge {
+    background: var(--blue); color: #fff; font-size: 8px; font-weight: 900;
+    padding: 2px 6px; border-radius: 3px; letter-spacing: 1px;
+  }
+  .meal-advice-title { font-size: 11px; font-weight: 700; color: var(--blue); }
+  .meal-advice-text { font-size: 13px; line-height: 1.65; color: #C8DCF0; }
+
+  /* ── MODE TOGGLE BUTTONS ── */
+  .mode-btn {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--gray); font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600; border-radius: 10px;
+    padding: 9px 10px; cursor: pointer; transition: all .2s;
+  }
+  .mode-btn.active {
+    background: var(--card2); color: var(--white); border-color: var(--green);
+  }
+  .mode-btn:hover:not(.active) { color: var(--white); }
+
+  /* ── SUGGESTIONS DROPDOWN ── */
+  .suggestions-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; margin-top: 6px;
+  }
+  .suggestion-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; cursor: pointer; transition: background .15s;
+    border-bottom: 1px solid var(--border);
+  }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:hover { background: var(--card2); }
+  .suggestion-name { font-size: 14px; font-weight: 500; }
+  .suggestion-kcal {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--orange); font-weight: 600;
+  }
+  .suggestion-note { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+  /* ── SEARCH RESULT CARD ── */
+  .result-card {
+    background: var(--bg3); border: 1px solid var(--green);
+    border-radius: 12px; padding: 16px; margin-top: 10px;
+  }
+  .result-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .result-icon { font-size: 28px; }
+  .result-name { font-size: 16px; font-weight: 700; }
+  .result-source { font-size: 11px; color: var(--gray); margin-top: 2px; }
+  .result-kcal-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .result-kcal-label { font-size: 13px; color: var(--gray); }
+  .result-kcal-inp {
+    width: 90px; background: var(--bg2); border: 1px solid var(--border);
+    color: var(--green); font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 700; border-radius: 8px;
+    padding: 4px 8px; text-align: right; outline: none;
+  }
+  .result-kcal-inp:focus { border-color: var(--green); }
+  .result-macros {
+    display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .result-macro {
+    font-size: 12px; color: var(--gray);
+    background: var(--bg2); border-radius: 6px; padding: 4px 8px;
+  }
+  .result-macro span { color: var(--white); font-weight: 600; }
+
+  /* ── AI RESULT ── */
+  .ai-result {
+    background: var(--bg3); border: 1px solid var(--green);
+    border-radius: 12px; padding: 16px; margin-top: 12px;
+    display: none;
+  }
+  .ai-result.show { display: block; }
+  .ai-result-title { color: var(--green); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  .ai-result-body { font-size: 14px; line-height: 1.7; color: var(--white); }
+
+  /* ── LOADING DOTS ── */
+  .dots span {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); margin: 0 2px;
+    animation: dotPulse 1.2s ease-in-out infinite;
+  }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes dotPulse { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+  /* ── BODY FORM ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 12px; color: var(--gray); font-weight: 500; }
+  select.inp option { background: var(--bg2); }
+
+  /* ── WORKOUT CARDS ── */
+  .workout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .workout-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; position: relative; overflow: hidden;
+  }
+  .workout-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .workout-card.beginner::before { background: var(--green); }
+  .workout-card.intermediate::before { background: var(--blue); }
+  .workout-card.advanced::before { background: var(--orange); }
+  .workout-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .workout-sets { font-size: 12px; color: var(--gray); margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+  .workout-tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 4px; letter-spacing: .5px; text-transform: uppercase;
+  }
+  .workout-card.beginner .workout-tag { background: rgba(0,229,160,.15); color: var(--green); }
+  .workout-card.intermediate .workout-tag { background: rgba(74,158,255,.15); color: var(--blue); }
+  .workout-card.advanced .workout-tag { background: rgba(255,107,53,.15); color: var(--orange); }
+  .workout-done-btn {
+    display: block; width: 100%; margin-top: 12px;
+    background: none; border: 1px solid var(--border); color: var(--gray);
+    font-size: 12px; font-weight: 600; border-radius: 8px; padding: 7px;
+    cursor: pointer; transition: all .2s; font-family: 'Inter', sans-serif;
+  }
+  .workout-done-btn.done {
+    background: rgba(0,229,160,.12); border-color: var(--green); color: var(--green);
+  }
+  .workout-done-btn:hover:not(.done) { border-color: var(--green); color: var(--green); }
+
+  /* ── HISTORY ── */
+  .history-day {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; margin-bottom: 12px;
+  }
+  .history-date {
+    font-size: 13px; font-weight: 700; color: var(--green); margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .history-badge {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+    font-weight: 700; letter-spacing: .5px;
+  }
+  .badge-good { background: rgba(0,229,160,.15); color: var(--green); }
+  .badge-warn { background: rgba(255,209,102,.15); color: var(--yellow); }
+  .badge-over { background: rgba(255,77,106,.15); color: var(--red); }
+  .history-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .history-row span:first-child { color: var(--gray); }
+  .history-row span:last-child { font-family: 'JetBrains Mono', monospace; }
+
+  /* ── AI ADVICE BOX ── */
+  .advice-box {
+    background: linear-gradient(135deg, rgba(0,229,160,.08), rgba(74,158,255,.05));
+    border: 1px solid rgba(0,229,160,.3); border-radius: 14px; padding: 18px;
+    margin-bottom: 16px;
+  }
+  .advice-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .advice-ai-badge {
+    background: var(--green); color: #000; font-size: 9px; font-weight: 900;
+    padding: 3px 7px; border-radius: 4px; letter-spacing: 1px;
+  }
+  .advice-title { font-size: 14px; font-weight: 700; }
+  .advice-body { font-size: 13px; line-height: 1.7; color: #C8DCF0; }
+
+  /* ── WEEK GRID ── */
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 20px; }
+  .week-day { text-align: center; }
+  .week-day-label { font-size: 10px; color: var(--gray); margin-bottom: 5px; }
+  .week-dot {
+    width: 100%; aspect-ratio: 1; border-radius: 8px;
+    background: var(--bg3); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .week-dot.done { background: rgba(0,229,160,.2); border-color: var(--green); }
+  .week-dot.over { background: rgba(255,77,106,.15); border-color: var(--red); }
+  .week-dot.warn { background: rgba(255,209,102,.15); border-color: var(--yellow); }
+
+  /* ── IMG PREVIEW ── */
+  .img-preview { max-width: 100%; max-height: 200px; border-radius: 10px; margin-top: 10px; display: none; }
+
+  /* ── DIVIDER ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:600px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    nav button { padding: 7px 10px; font-size: 12px; }
+    .calorie-center { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Fit<span>Scan</span></div>
+  <nav>
+    <button class="active" onclick="showView('calorie')">🍽 カロリー</button>
+    <button onclick="showView('workout')">💪 筋トレ</button>
+    <button onclick="showView('history')">📊 記録</button>
+  </nav>
+</header>
+
+<!-- ── CALORIE VIEW ── -->
+<div id="view-calorie" class="view active">
+
+  <!-- Today Summary -->
+  <div class="card">
+    <div class="card-title">今日の摂取状況</div>
+    <div class="calorie-center">
+      <div class="ring-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle cx="55" cy="55" r="45" fill="none" stroke="#1C2E45" stroke-width="10"/>
+          <circle id="ringFill" cx="55" cy="55" r="45" fill="none"
+            stroke="#00E5A0" stroke-width="10" stroke-linecap="round"
+            stroke-dasharray="282.7" stroke-dashoffset="282.7"
+            style="transition:stroke-dashoffset .8s ease"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-kcal" id="totalKcal">0</div>
+          <div class="ring-sub">kcal</div>
+        </div>
+      </div>
+      <div class="macro-bars">
+        <div class="macro-row">
+          <div class="macro-label"><span>炭水化物</span><span id="carbVal">0g / 250g</span></div>
+          <div class="bar-bg"><div class="bar-fill" id="carbBar" style="width:0%;background:#4A9EFF"></div></div>
+        </div>
+        <div class="macro-row">
+          <div class="macro-label"><span>タンパク質</span><span id="protVal">0g / 120g</span></div>
+          <div class="bar-bg"><div class="bar-fill" id="protBar" style="width:0%;background:#00E5A0"></div></div>
+        </div>
+        <div class="macro-row">
+          <div class="macro-label"><span>脂質</span><span id="fatVal">0g / 65g</span></div>
+          <div class="bar-bg"><div class="bar-fill" id="fatBar" style="width:0%;background:#FF6B35"></div></div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--gray)">
+          目標: <span id="goalKcal" style="color:var(--white);font-family:'JetBrains Mono',monospace">2000</span> kcal 
+          &nbsp;|&nbsp; 残り: <span id="remainKcal" style="color:var(--green);font-family:'JetBrains Mono',monospace">2000</span> kcal
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Food Input -->
+  <div class="card">
+    <div class="card-title">食事を記録</div>
+
+    <!-- Meal Tabs -->
+    <div class="meal-tabs">
+      <button class="meal-tab active" id="tab-breakfast" onclick="switchMeal('breakfast')">
+        <span class="meal-tab-icon">🌅</span>朝食
+        <span class="meal-tab-kcal" id="tab-kcal-breakfast">0 kcal</span>
+      </button>
+      <button class="meal-tab" id="tab-lunch" onclick="switchMeal('lunch')">
+        <span class="meal-tab-icon">☀️</span>昼食
+        <span class="meal-tab-kcal" id="tab-kcal-lunch">0 kcal</span>
+      </button>
+      <button class="meal-tab" id="tab-dinner" onclick="switchMeal('dinner')">
+        <span class="meal-tab-icon">🌙</span>夕食
+        <span class="meal-tab-kcal" id="tab-kcal-dinner">0 kcal</span>
+      </button>
+      <button class="meal-tab" id="tab-snack" onclick="switchMeal('snack')">
+        <span class="meal-tab-icon">🍫</span>その他
+        <span class="meal-tab-kcal" id="tab-kcal-snack">0 kcal</span>
+      </button>
+    </div>
+
+    <!-- Mode Toggle -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="mode-btn active" id="modeSearch" onclick="switchMode('search')">🔍 料理名から検索</button>
+      <button class="mode-btn" id="modeManual" onclick="switchMode('manual')">✏️ 手入力で登録</button>
+    </div>
+
+    <!-- SEARCH MODE -->
+    <div id="panelSearch">
+      <div class="input-row">
+        <input class="inp" id="foodInput" type="text"
+          placeholder="例：カレーライス、サラダ、みそ汁"
+          oninput="onFoodInput()" onkeydown="if(event.key==='Enter')lookupFood()">
+        <button class="btn" onclick="lookupFood()">検索</button>
+      </div>
+      <!-- Suggestions dropdown -->
+      <div id="suggestions" class="suggestions-box" style="display:none"></div>
+      <!-- Result preview -->
+      <div id="searchResult" class="ai-result" style="margin-top:10px"></div>
+    </div>
+
+    <!-- MANUAL MODE -->
+    <div id="panelManual" style="display:none">
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="form-group">
+          <label class="form-label">料理名</label>
+          <input class="inp" id="manualName" type="text" placeholder="例：自家製カレー">
+        </div>
+        <div class="form-group">
+          <label class="form-label">カロリー (kcal)</label>
+          <input class="inp" id="manualKcal" type="number" placeholder="例：650" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">タンパク質 (g) ※任意</label>
+          <input class="inp" id="manualProt" type="number" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">炭水化物 (g) ※任意</label>
+          <input class="inp" id="manualCarb" type="number" placeholder="0" min="0">
+        </div>
+      </div>
+      <button class="btn" style="width:100%" onclick="addManual()">✚ 食事に登録する</button>
+    </div>
+
+  </div>
+
+  <!-- Food List per meal -->
+  <div class="card">
+    <div class="card-title" id="mealListTitle">朝食の記録</div>
+    <div id="foodList-breakfast" class="meal-section active"><p style="color:var(--gray);font-size:13px">まだ記録がありません</p></div>
+    <div id="foodList-lunch"     class="meal-section"><p style="color:var(--gray);font-size:13px">まだ記録がありません</p></div>
+    <div id="foodList-dinner"    class="meal-section"><p style="color:var(--gray);font-size:13px">まだ記録がありません</p></div>
+    <div id="foodList-snack"     class="meal-section"><p style="color:var(--gray);font-size:13px">まだ記録がありません</p></div>
+    <!-- Per-meal summary + advice (shown when foods exist) -->
+    <div id="mealSummary-breakfast" class="meal-section active meal-summary" style="display:none"></div>
+    <div id="mealSummary-lunch"     class="meal-summary" style="display:none"></div>
+    <div id="mealSummary-dinner"    class="meal-summary" style="display:none"></div>
+    <div id="mealSummary-snack"     class="meal-summary" style="display:none"></div>
+  </div>
+
+</div>
+
+<!-- ── WORKOUT VIEW ── -->
+<div id="view-workout" class="view">
+
+  <!-- Body Stats -->
+  <div class="card">
+    <div class="card-title">体重・目標設定</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">現在の体重 (kg)</label>
+        <input class="inp" id="currentWeight" type="number" placeholder="70" step="0.1" oninput="updateWorkout()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">目標体重 (kg)</label>
+        <input class="inp" id="targetWeight" type="number" placeholder="65" step="0.1" oninput="updateWorkout()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">身長 (cm)</label>
+        <input class="inp" id="height" type="number" placeholder="170" oninput="updateWorkout()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">レベル</label>
+        <select class="inp" id="level" onchange="updateWorkout()">
+          <option value="beginner">🌱 初心者</option>
+          <option value="intermediate">⚡ 中級者</option>
+          <option value="advanced">🔥 上級者</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" style="width:100%;margin-top:12px" onclick="generateWorkoutPlan()">筋トレプランを生成</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="bodyStats" style="display:none">
+    <div class="stat-card"><div class="stat-val blue" id="bmiVal">—</div><div class="stat-label">BMI</div></div>
+    <div class="stat-card"><div class="stat-val orange" id="diffVal">—</div><div class="stat-label">目標差 (kg)</div></div>
+    <div class="stat-card"><div class="stat-val green" id="tdeeVal">—</div><div class="stat-label">推定TDEE (kcal)</div></div>
+  </div>
+
+  <!-- AI Workout Plan -->
+  <div class="ai-result" id="workoutResult" style="display:none">
+    <div class="ai-result-title">🤖 AI パーソナルプラン</div>
+    <div class="ai-result-body" id="workoutResultBody"></div>
+  </div>
+
+  <!-- Workout Cards -->
+  <div id="workoutSection" style="display:none">
+    <div class="card-title" style="color:var(--gray);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">
+      本日のメニュー
+    </div>
+    <div class="workout-grid" id="workoutGrid"></div>
+  </div>
+
+</div>
+
+<!-- ── HISTORY VIEW ── -->
+<div id="view-history" class="view">
+
+  <div class="advice-box" id="aiAdvice" style="display:none">
+    <div class="advice-header">
+      <span class="advice-ai-badge">AI</span>
+      <span class="advice-title">AIコーチからのアドバイス</span>
+    </div>
+    <div class="advice-body" id="adviceBody">
+      <span class="dots"><span></span><span></span><span></span></span>
+    </div>
+  </div>
+
+  <!-- Week Grid -->
+  <div class="card">
+    <div class="card-title">今週の達成状況</div>
+    <div class="week-grid" id="weekGrid"></div>
+    <div style="display:flex;gap:16px;font-size:11px;color:var(--gray)">
+      <span>🟢 目標達成</span>
+      <span>🟡 やや超過</span>
+      <span>🔴 大幅超過 / 未記録</span>
+    </div>
+  </div>
+
+  <!-- History List -->
+  <div id="historyList"></div>
+
+  <button class="btn btn-sec" style="width:100%" onclick="generateAIAdvice()">🤖 AIアドバイスを更新</button>
+</div>
+
+<script>
+// ────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────
+const GOAL_KCAL = 2000;
+const MEALS = {
+  breakfast: { label:'朝食', icon:'🌅' },
+  lunch:     { label:'昼食', icon:'☀️' },
+  dinner:    { label:'夕食', icon:'🌙' },
+  snack:     { label:'その他', icon:'🍫' },
+};
+let currentMeal = 'breakfast';
+let todayFoods = {
+  breakfast: { items:[], advice:'' },
+  lunch:     { items:[], advice:'' },
+  dinner:    { items:[], advice:'' },
+  snack:     { items:[], advice:'' },
+};
+let todayMacros = { carb:0, prot:0, fat:0 };
+let workoutDone = {};
+const STORAGE_KEY = 'fitscan_data';
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : { logs: {}, weights: {} };
+  } catch { return { logs: {}, weights: {} }; }
+}
+function saveData(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0,10);
+}
+
+// ────────────────────────────────────────────
+// MEAL TAB SWITCHING
+// ────────────────────────────────────────────
+const MEAL_TITLES = { breakfast:'朝食の記録', lunch:'昼食の記録', dinner:'夕食の記録', snack:'その他の記録' };
+
+function switchMeal(meal) {
+  currentMeal = meal;
+  document.querySelectorAll('.meal-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+meal).classList.add('active');
+  document.querySelectorAll('.meal-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('foodList-'+meal).classList.add('active');
+  document.getElementById('mealListTitle').textContent = MEAL_TITLES[meal];
+  // Show/hide summary for this meal
+  ['breakfast','lunch','dinner','snack'].forEach(m => {
+    const sumEl = document.getElementById('mealSummary-'+m);
+    if (sumEl) sumEl.style.display = (m === meal && (todayFoods[m].items||[]).length) ? 'block' : 'none';
+  });
+  document.getElementById('searchResult').style.display = 'none';
+  document.getElementById('searchResult').innerHTML = '';
+  document.getElementById('suggestions').style.display = 'none';
+  document.getElementById('aiResult') && document.getElementById('aiResult').classList.remove('show');
+}
+
+// ────────────────────────────────────────────
+// VIEW SWITCHING
+// ────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'history') renderHistory();
+}
+
+// ────────────────────────────────────────────
+// CALORIE / FOOD
+// ────────────────────────────────────────────
+function recalcMacros() {
+  todayMacros = { carb:0, prot:0, fat:0 };
+  Object.values(todayFoods).flatMap(m => m.items).forEach(f => {
+    todayMacros.carb += f.carb||0;
+    todayMacros.prot += f.prot||0;
+    todayMacros.fat  += f.fat||0;
+  });
+}
+
+function updateCalorieUI() {
+  const total = Object.values(todayFoods).flatMap(m => m.items).reduce((s,f) => s+f.kcal, 0);
+  document.getElementById('totalKcal').textContent = total;
+  const pct = Math.min(total / GOAL_KCAL, 1);
+  const circumference = 2 * Math.PI * 45;
+  document.getElementById('ringFill').style.strokeDashoffset = circumference * (1 - pct);
+  document.getElementById('ringFill').style.stroke = total > GOAL_KCAL ? '#FF4D6A' : '#00E5A0';
+
+  const { carb, prot, fat } = todayMacros;
+  document.getElementById('carbVal').textContent = `${Math.round(carb)}g / 250g`;
+  document.getElementById('protVal').textContent = `${Math.round(prot)}g / 120g`;
+  document.getElementById('fatVal').textContent  = `${Math.round(fat)}g / 65g`;
+  document.getElementById('carbBar').style.width = Math.min(carb/250*100,100)+'%';
+  document.getElementById('protBar').style.width = Math.min(prot/120*100,100)+'%';
+  document.getElementById('fatBar').style.width  = Math.min(fat/65*100,100)+'%';
+  document.getElementById('remainKcal').textContent = Math.max(GOAL_KCAL - total, 0);
+
+  // Update per-meal kcal badges on tabs
+  Object.keys(MEALS).forEach(meal => {
+    const mkcal = (todayFoods[meal].items||[]).reduce((s,f) => s+f.kcal, 0);
+    document.getElementById('tab-kcal-'+meal).textContent = mkcal > 0 ? mkcal+' kcal' : '0 kcal';
+  });
+
+  // Save to storage
+  const data = loadData();
+  data.logs[todayKey()] = { kcal: total, carb: todayMacros.carb, prot: todayMacros.prot, fat: todayMacros.fat, meals: JSON.parse(JSON.stringify(todayFoods)), workoutDone: { ...workoutDone } };
+  saveData(data);
+}
+
+function renderFoodList(meal) {
+  const el = document.getElementById('foodList-'+meal);
+  const sumEl = document.getElementById('mealSummary-'+meal);
+  const foods = todayFoods[meal].items || [];
+
+  if (!foods.length) {
+    el.innerHTML = '<p style="color:var(--gray);font-size:13px">まだ記録がありません</p>';
+    sumEl.style.display = 'none';
+    return;
+  }
+
+  el.innerHTML = foods.map((f,i) => `
+    <div class="food-item">
+      <div class="food-icon">${f.icon}</div>
+      <div class="food-name">${f.name}</div>
+      <div class="food-kcal">${f.kcal} kcal</div>
+      <button class="food-del" onclick="removeFood('${meal}',${i})">✕</button>
+    </div>`).join('');
+
+  const total = foods.reduce((s,f) => s+f.kcal, 0);
+  const advice = todayFoods[meal].advice || '';
+
+  sumEl.style.display = 'block';
+  sumEl.innerHTML = `
+    <div class="meal-total-row">
+      <span class="meal-total-label">🍽 合計</span>
+      <span class="meal-total-kcal">${total} kcal</span>
+    </div>
+    ${advice ? `
+    <div class="meal-advice-box">
+      <div class="meal-advice-header">
+        <span class="meal-advice-badge">AI</span>
+        <span class="meal-advice-title">ワンポイントアドバイス</span>
+      </div>
+      <div class="meal-advice-text">${advice}</div>
+    </div>` : `
+    <div class="meal-advice-box" id="adviceLoading-${meal}">
+      <div class="meal-advice-header">
+        <span class="meal-advice-badge">AI</span>
+        <span class="meal-advice-title">ワンポイントアドバイス</span>
+      </div>
+      <div class="meal-advice-text"><span class="dots"><span></span><span></span><span></span></span></div>
+    </div>`}`;
+}
+
+function removeFood(meal, i) {
+  todayFoods[meal].items.splice(i,1);
+  if (!todayFoods[meal].items.length) todayFoods[meal].advice = '';
+  recalcMacros();
+  renderFoodList(meal);
+  updateCalorieUI();
+}
+
+function addFoodItems(items, advice) {
+  // items: [{name,kcal,carb,prot,fat,icon}, ...]
+  todayFoods[currentMeal].items.push(...items);
+  todayFoods[currentMeal].advice = advice;
+  recalcMacros();
+  renderFoodList(currentMeal);
+  updateCalorieUI();
+}
+
+// ────────────────────────────────────────────
+// 食品データベース（約300品）
+// ────────────────────────────────────────────
+const FOOD_DB = [
+  // ── 主食：ご飯・おにぎり ──
+  {name:'白米（茶碗1杯・150g）',        kcal:252, carb:55, prot:3.8, fat:0.5, icon:'🍚'},
+  {name:'玄米（茶碗1杯・150g）',        kcal:248, carb:53, prot:4.2, fat:1.0, icon:'🍚'},
+  {name:'雑穀米（茶碗1杯）',            kcal:245, carb:52, prot:4.5, fat:1.2, icon:'🍚'},
+  {name:'白米（大盛り・250g）',         kcal:420, carb:92, prot:6.3, fat:0.8, icon:'🍚'},
+  {name:'おにぎり（梅・1個）',          kcal:178, carb:37, prot:3.5, fat:0.5, icon:'🍙'},
+  {name:'おにぎり（鮭・1個）',          kcal:195, carb:36, prot:6.0, fat:2.0, icon:'🍙'},
+  {name:'おにぎり（ツナマヨ・1個）',    kcal:230, carb:35, prot:5.5, fat:7.0, icon:'🍙'},
+  {name:'おにぎり（昆布・1個）',        kcal:170, carb:36, prot:3.2, fat:0.4, icon:'🍙'},
+  {name:'おにぎり（明太子・1個）',      kcal:185, carb:36, prot:5.0, fat:1.5, icon:'🍙'},
+  {name:'おにぎり（焼きたらこ・1個）',  kcal:190, carb:36, prot:6.0, fat:1.8, icon:'🍙'},
+  {name:'チャーハン（1人前）',          kcal:620, carb:72, prot:18, fat:24,  icon:'🍳'},
+  {name:'炊き込みご飯（1杯）',          kcal:280, carb:56, prot:6.0, fat:3.0, icon:'🍚'},
+  {name:'お茶漬け（鮭）',               kcal:210, carb:40, prot:10, fat:2.0, icon:'🍵'},
+  {name:'雑炊（卵入り）',               kcal:200, carb:38, prot:8.0, fat:3.0, icon:'🍵'},
+  // ── 主食：パン ──
+  {name:'食パン（1枚・60g）',           kcal:156, carb:29, prot:5.3, fat:2.5, icon:'🍞'},
+  {name:'食パン（2枚・120g）',          kcal:312, carb:58, prot:10, fat:5.0, icon:'🍞'},
+  {name:'クロワッサン（1個）',          kcal:210, carb:24, prot:4.0, fat:11, icon:'🥐'},
+  {name:'バターロール（2個）',          kcal:190, carb:30, prot:5.0, fat:5.5, icon:'🍞'},
+  {name:'フランスパン（2切れ）',        kcal:180, carb:36, prot:6.0, fat:1.0, icon:'🥖'},
+  {name:'メロンパン（1個）',            kcal:350, carb:58, prot:7.0, fat:10, icon:'🍞'},
+  {name:'あんパン（1個）',              kcal:280, carb:55, prot:7.0, fat:3.5, icon:'🍞'},
+  {name:'カレーパン（1個）',            kcal:320, carb:42, prot:8.0, fat:13, icon:'🍞'},
+  {name:'コーンパン（1個）',            kcal:260, carb:42, prot:7.0, fat:7.0, icon:'🌽'},
+  {name:'ベーグル（1個）',              kcal:280, carb:56, prot:10, fat:1.5, icon:'🥯'},
+  {name:'サンドイッチ（ハムチーズ）',   kcal:350, carb:38, prot:16, fat:14, icon:'🥪'},
+  {name:'サンドイッチ（たまご）',       kcal:310, carb:36, prot:12, fat:13, icon:'🥪'},
+  {name:'BLTサンドイッチ',             kcal:380, carb:36, prot:14, fat:18, icon:'🥪'},
+  {name:'ホットドッグ',                 kcal:310, carb:36, prot:12, fat:12, icon:'🌭'},
+  // ── 主食：麺類 ──
+  {name:'うどん（かけ・1玉）',          kcal:270, carb:56, prot:7.0, fat:0.8, icon:'🍜'},
+  {name:'うどん（ざる・1玉）',          kcal:290, carb:58, prot:8.0, fat:1.0, icon:'🍜'},
+  {name:'うどん（肉うどん）',           kcal:420, carb:60, prot:18, fat:10, icon:'🍜'},
+  {name:'うどん（きつね）',             kcal:380, carb:64, prot:13, fat:7.0, icon:'🍜'},
+  {name:'そば（かけ・1玉）',            kcal:264, carb:51, prot:12, fat:1.5, icon:'🍜'},
+  {name:'ざるそば',                     kcal:320, carb:60, prot:14, fat:2.0, icon:'🍜'},
+  {name:'そば（天ざる）',               kcal:520, carb:72, prot:20, fat:12, icon:'🍜'},
+  {name:'ラーメン（醤油）',             kcal:480, carb:68, prot:18, fat:14, icon:'🍜'},
+  {name:'ラーメン（豚骨）',             kcal:550, carb:70, prot:22, fat:18, icon:'🍜'},
+  {name:'ラーメン（味噌）',             kcal:520, carb:68, prot:20, fat:16, icon:'🍜'},
+  {name:'ラーメン（塩）',               kcal:450, carb:65, prot:18, fat:12, icon:'🍜'},
+  {name:'つけ麺（1人前）',              kcal:620, carb:82, prot:28, fat:18, icon:'🍜'},
+  {name:'焼きそば（1人前）',            kcal:460, carb:65, prot:14, fat:14, icon:'🍳'},
+  {name:'冷やし中華',                   kcal:480, carb:72, prot:16, fat:12, icon:'🍜'},
+  {name:'パスタ（ミートソース）',       kcal:580, carb:72, prot:22, fat:18, icon:'🍝'},
+  {name:'パスタ（カルボナーラ）',       kcal:680, carb:68, prot:20, fat:30, icon:'🍝'},
+  {name:'パスタ（ペペロンチーノ）',     kcal:520, carb:68, prot:14, fat:18, icon:'🍝'},
+  {name:'パスタ（ナポリタン）',         kcal:540, carb:72, prot:16, fat:18, icon:'🍝'},
+  {name:'パスタ（たらこ）',             kcal:560, carb:68, prot:18, fat:20, icon:'🍝'},
+  {name:'スパゲッティ（200g調理後）',   kcal:298, carb:60, prot:10, fat:1.5, icon:'🍝'},
+  {name:'そうめん（1束）',              kcal:190, carb:38, prot:6.0, fat:0.5, icon:'🍜'},
+  {name:'インスタントラーメン（1袋）',  kcal:380, carb:52, prot:10, fat:14, icon:'🍜'},
+  {name:'カップヌードル',               kcal:351, carb:44, prot:10, fat:14, icon:'🍜'},
+  // ── 丼・定食 ──
+  {name:'カレーライス',                 kcal:650, carb:88, prot:18, fat:18, icon:'🍛'},
+  {name:'カレーライス（大盛り）',       kcal:850, carb:115,prot:22, fat:22, icon:'🍛'},
+  {name:'ドライカレー',                 kcal:580, carb:72, prot:20, fat:18, icon:'🍛'},
+  {name:'牛丼（並盛）',                 kcal:636, carb:82, prot:25, fat:20, icon:'🥩'},
+  {name:'牛丼（大盛り）',               kcal:830, carb:108,prot:32, fat:26, icon:'🥩'},
+  {name:'親子丼',                       kcal:580, carb:75, prot:28, fat:15, icon:'🍳'},
+  {name:'天丼',                         kcal:720, carb:90, prot:20, fat:22, icon:'🍤'},
+  {name:'カツ丼',                       kcal:780, carb:88, prot:32, fat:28, icon:'🥩'},
+  {name:'海鮮丼',                       kcal:520, carb:70, prot:28, fat:8.0, icon:'🐠'},
+  {name:'マグロ丼',                     kcal:480, carb:68, prot:30, fat:5.0, icon:'🐟'},
+  {name:'オムライス',                   kcal:550, carb:65, prot:20, fat:22, icon:'🍳'},
+  {name:'ハヤシライス',                 kcal:620, carb:80, prot:20, fat:20, icon:'🍚'},
+  {name:'ビビンバ（1人前）',            kcal:550, carb:75, prot:22, fat:14, icon:'🍚'},
+  {name:'焼き魚定食',                   kcal:550, carb:70, prot:28, fat:12, icon:'🍱'},
+  {name:'唐揚げ定食',                   kcal:780, carb:85, prot:35, fat:28, icon:'🍱'},
+  {name:'とんかつ定食',                 kcal:850, carb:88, prot:38, fat:32, icon:'🍱'},
+  {name:'刺身定食',                     kcal:520, carb:68, prot:32, fat:8.0, icon:'🍱'},
+  {name:'から揚げ定食',                 kcal:780, carb:82, prot:34, fat:28, icon:'🍱'},
+  {name:'幕の内弁当',                   kcal:700, carb:90, prot:25, fat:20, icon:'🍱'},
+  {name:'のり弁当',                     kcal:650, carb:88, prot:18, fat:18, icon:'🍱'},
+  {name:'鶏そぼろ弁当',                 kcal:580, carb:78, prot:24, fat:14, icon:'🍱'},
+  // ── 肉料理 ──
+  {name:'唐揚げ（3個）',                kcal:330, carb:12, prot:22, fat:22, icon:'🍗'},
+  {name:'唐揚げ（5個）',                kcal:550, carb:20, prot:37, fat:37, icon:'🍗'},
+  {name:'焼き鳥（2本・塩）',            kcal:160, carb:1.0,prot:18, fat:8.0, icon:'🍢'},
+  {name:'焼き鳥（2本・たれ）',          kcal:190, carb:6.0,prot:18, fat:8.0, icon:'🍢'},
+  {name:'豚カツ（1枚）',                kcal:510, carb:30, prot:30, fat:28, icon:'🥩'},
+  {name:'チキンカツ（1枚）',            kcal:450, carb:28, prot:28, fat:22, icon:'🥩'},
+  {name:'ハンバーグ（1個・デミソース）',kcal:380, carb:12, prot:22, fat:26, icon:'🍔'},
+  {name:'煮込みハンバーグ',             kcal:420, carb:18, prot:24, fat:26, icon:'🍔'},
+  {name:'ステーキ（150g）',             kcal:430, carb:0.5,prot:34, fat:30, icon:'🥩'},
+  {name:'焼肉（カルビ・100g）',         kcal:472, carb:0.5,prot:17, fat:43, icon:'🥩'},
+  {name:'焼肉（ロース・100g）',         kcal:411, carb:0.5,prot:17, fat:37, icon:'🥩'},
+  {name:'焼肉（ハラミ・100g）',         kcal:355, carb:0.5,prot:18, fat:30, icon:'🥩'},
+  {name:'豚の生姜焼き',                 kcal:380, carb:8.0,prot:24, fat:26, icon:'🥩'},
+  {name:'豚の角煮（1人前）',            kcal:480, carb:10, prot:24, fat:36, icon:'🥩'},
+  {name:'餃子（6個）',                  kcal:288, carb:28, prot:14, fat:12, icon:'🥟'},
+  {name:'餃子（10個）',                 kcal:480, carb:46, prot:23, fat:20, icon:'🥟'},
+  {name:'シュウマイ（5個）',            kcal:240, carb:20, prot:14, fat:10, icon:'🥟'},
+  {name:'酢豚（1人前）',                kcal:380, carb:32, prot:18, fat:18, icon:'🥩'},
+  {name:'麻婆豆腐（1人前）',            kcal:320, carb:14, prot:18, fat:20, icon:'🌶️'},
+  {name:'回鍋肉（1人前）',              kcal:350, carb:12, prot:20, fat:24, icon:'🥩'},
+  {name:'チキン南蛮（1人前）',          kcal:520, carb:28, prot:30, fat:28, icon:'🍗'},
+  {name:'鶏の照り焼き（1枚）',          kcal:340, carb:10, prot:28, fat:18, icon:'🍗'},
+  {name:'ローストチキン（100g）',       kcal:200, carb:0.0,prot:24, fat:11, icon:'🍗'},
+  {name:'サラダチキン（1個・100g）',    kcal:109, carb:0.0,prot:24, fat:1.3, icon:'🍗'},
+  // ── 魚・海鮮料理 ──
+  {name:'焼き鮭（1切れ）',              kcal:170, carb:0.1,prot:24, fat:7.0, icon:'🐟'},
+  {name:'焼き鯖（1切れ）',              kcal:210, carb:0.1,prot:22, fat:13, icon:'🐟'},
+  {name:'焼き秋刀魚（1尾）',            kcal:310, carb:0.1,prot:22, fat:24, icon:'🐟'},
+  {name:'鯖の味噌煮（1切れ）',          kcal:280, carb:10, prot:20, fat:16, icon:'🐟'},
+  {name:'刺身（マグロ赤身・100g）',     kcal:125, carb:0.1,prot:26, fat:1.4, icon:'🐠'},
+  {name:'刺身（サーモン・100g）',       kcal:177, carb:0.1,prot:20, fat:10, icon:'🐠'},
+  {name:'刺身（ハマチ・100g）',         kcal:257, carb:0.1,prot:21, fat:18, icon:'🐠'},
+  {name:'刺身盛り合わせ（1人前）',      kcal:200, carb:2.0,prot:30, fat:5.0, icon:'🐠'},
+  {name:'エビフライ（3尾）',            kcal:260, carb:20, prot:16, fat:12, icon:'🍤'},
+  {name:'海老の天ぷら（2尾）',          kcal:200, carb:16, prot:12, fat:10, icon:'🍤'},
+  {name:'イカの天ぷら（1人前）',        kcal:280, carb:22, prot:14, fat:14, icon:'🦑'},
+  {name:'アジフライ（2枚）',            kcal:320, carb:22, prot:18, fat:18, icon:'🐟'},
+  {name:'マグロのたたき（1人前）',      kcal:160, carb:4.0,prot:28, fat:3.0, icon:'🐟'},
+  {name:'寿司（にぎり10貫）',           kcal:480, carb:72, prot:24, fat:6.0, icon:'🍣'},
+  {name:'寿司（マグロ2貫）',            kcal:120, carb:22, prot:8.0, fat:1.0, icon:'🍣'},
+  {name:'寿司（サーモン2貫）',          kcal:140, carb:22, prot:7.0, fat:4.0, icon:'🍣'},
+  {name:'手巻き寿司（1本）',            kcal:180, carb:28, prot:8.0, fat:4.0, icon:'🍣'},
+  {name:'たこ焼き（6個）',              kcal:270, carb:34, prot:10, fat:10, icon:'🐙'},
+  // ── 鍋・汁物 ──
+  {name:'味噌汁（1杯）',                kcal:35,  carb:3.0,prot:2.5, fat:1.2, icon:'🍵'},
+  {name:'豚汁（1杯）',                  kcal:120, carb:10, prot:8.0, fat:5.0, icon:'🍲'},
+  {name:'すまし汁（1杯）',              kcal:20,  carb:1.5,prot:1.5, fat:0.5, icon:'🍵'},
+  {name:'鍋（寄せ鍋・1人前）',          kcal:380, carb:20, prot:28, fat:16, icon:'🍲'},
+  {name:'鍋（しゃぶしゃぶ・1人前）',    kcal:450, carb:10, prot:32, fat:28, icon:'🍲'},
+  {name:'鍋（すき焼き・1人前）',        kcal:580, carb:32, prot:28, fat:30, icon:'🍲'},
+  {name:'鍋（もつ鍋・1人前）',          kcal:380, carb:14, prot:28, fat:22, icon:'🍲'},
+  {name:'おでん（1人前）',              kcal:250, carb:22, prot:16, fat:8.0, icon:'🍢'},
+  {name:'茶碗蒸し（1個）',              kcal:90,  carb:4.0,prot:8.0, fat:4.0, icon:'🍵'},
+  // ── 野菜・惣菜 ──
+  {name:'グリーンサラダ',               kcal:30,  carb:5.0,prot:2.0, fat:0.3, icon:'🥗'},
+  {name:'シーザーサラダ',               kcal:180, carb:10, prot:6.0, fat:13, icon:'🥗'},
+  {name:'ポテトサラダ',                 kcal:160, carb:18, prot:3.0, fat:8.0, icon:'🥗'},
+  {name:'コールスロー',                 kcal:120, carb:12, prot:2.0, fat:7.0, icon:'🥗'},
+  {name:'ほうれん草のお浸し',           kcal:25,  carb:2.0,prot:2.5, fat:0.3, icon:'🌿'},
+  {name:'きんぴらごぼう',               kcal:95,  carb:14, prot:2.0, fat:3.0, icon:'🥕'},
+  {name:'ひじきの煮物',                 kcal:80,  carb:10, prot:4.0, fat:2.0, icon:'🌿'},
+  {name:'かぼちゃの煮物',               kcal:120, carb:24, prot:2.0, fat:1.0, icon:'🎃'},
+  {name:'里芋の煮物',                   kcal:100, carb:20, prot:2.0, fat:0.5, icon:'🥔'},
+  {name:'大根の煮物',                   kcal:60,  carb:10, prot:1.5, fat:1.0, icon:'🌿'},
+  {name:'野菜炒め（1人前）',            kcal:180, carb:10, prot:8.0, fat:10, icon:'🥦'},
+  {name:'ゴーヤチャンプル（1人前）',    kcal:240, carb:8.0,prot:14, fat:15, icon:'🥒'},
+  {name:'ナスの味噌炒め',               kcal:160, carb:12, prot:4.0, fat:10, icon:'🍆'},
+  {name:'ブロッコリー（100g・茹で）',   kcal:33,  carb:4.0,prot:4.0, fat:0.5, icon:'🥦'},
+  {name:'枝豆（100g）',                 kcal:135, carb:8.8,prot:12, fat:6.2, icon:'🫘'},
+  {name:'とうもろこし（1本）',          kcal:153, carb:31, prot:4.0, fat:2.0, icon:'🌽'},
+  {name:'かぼちゃのスープ（1杯）',      kcal:140, carb:20, prot:3.0, fat:5.0, icon:'🎃'},
+  {name:'コーンスープ（1杯）',          kcal:120, carb:18, prot:3.0, fat:4.0, icon:'🌽'},
+  {name:'ミネストローネ（1杯）',        kcal:100, carb:14, prot:4.0, fat:3.0, icon:'🍅'},
+  {name:'オニオンスープ（1杯）',        kcal:80,  carb:10, prot:2.0, fat:3.0, icon:'🧅'},
+  // ── 豆腐・大豆製品 ──
+  {name:'冷奴（1丁）',                  kcal:73,  carb:1.5,prot:7.0, fat:3.5, icon:'🥄'},
+  {name:'湯豆腐（1人前）',              kcal:90,  carb:3.0,prot:8.0, fat:4.0, icon:'🥄'},
+  {name:'厚揚げ（1枚）',                kcal:150, carb:3.0,prot:10, fat:11, icon:'🥄'},
+  {name:'油揚げ（1枚）',                kcal:133, carb:1.0,prot:7.0, fat:11, icon:'🥄'},
+  {name:'納豆（1パック）',              kcal:100, carb:5.5,prot:8.3, fat:5.0, icon:'🫘'},
+  {name:'豆乳（200ml）',                kcal:92,  carb:6.2,prot:7.2, fat:4.0, icon:'🥛'},
+  // ── 卵料理 ──
+  {name:'目玉焼き（1個）',              kcal:91,  carb:0.1,prot:6.5, fat:7.0, icon:'🍳'},
+  {name:'ゆで卵（1個）',                kcal:77,  carb:0.3,prot:6.3, fat:5.2, icon:'🥚'},
+  {name:'スクランブルエッグ（2個）',    kcal:190, carb:1.0,prot:14, fat:14, icon:'🍳'},
+  {name:'だし巻き卵（1本）',            kcal:120, carb:4.0,prot:8.0, fat:7.0, icon:'🍳'},
+  {name:'オムレツ（1個）',              kcal:200, carb:2.0,prot:12, fat:15, icon:'🍳'},
+  {name:'卵かけご飯',                   kcal:330, carb:56, prot:11, fat:6.5, icon:'🍳'},
+  // ── 乳製品 ──
+  {name:'牛乳（200ml）',                kcal:134, carb:9.6,prot:6.6, fat:7.6, icon:'🥛'},
+  {name:'低脂肪牛乳（200ml）',          kcal:92,  carb:10, prot:7.0, fat:2.0, icon:'🥛'},
+  {name:'ヨーグルト（100g）',           kcal:62,  carb:5.0,prot:3.6, fat:3.0, icon:'🥛'},
+  {name:'無糖ヨーグルト（100g）',       kcal:56,  carb:4.9,prot:3.6, fat:3.0, icon:'🥛'},
+  {name:'ギリシャヨーグルト（100g）',   kcal:97,  carb:3.6,prot:9.0, fat:5.0, icon:'🥛'},
+  {name:'チーズ（スライス1枚）',        kcal:68,  carb:0.3,prot:4.5, fat:5.2, icon:'🧀'},
+  {name:'カマンベールチーズ（30g）',    kcal:93,  carb:0.3,prot:5.7, fat:7.5, icon:'🧀'},
+  {name:'カッテージチーズ（50g）',      kcal:50,  carb:1.0,prot:7.5, fat:1.0, icon:'🧀'},
+  // ── ファストフード ──
+  {name:'ハンバーガー',                 kcal:380, carb:38, prot:14, fat:18, icon:'🍔'},
+  {name:'チーズバーガー',               kcal:430, carb:40, prot:17, fat:22, icon:'🍔'},
+  {name:'ダブルチーズバーガー',         kcal:610, carb:42, prot:28, fat:34, icon:'🍔'},
+  {name:'ビッグマック',                 kcal:525, carb:46, prot:25, fat:26, icon:'🍔'},
+  {name:'フライドポテト（S）',          kcal:230, carb:29, prot:3.0, fat:11, icon:'🍟'},
+  {name:'フライドポテト（M）',          kcal:330, carb:43, prot:4.0, fat:16, icon:'🍟'},
+  {name:'フライドポテト（L）',          kcal:450, carb:58, prot:6.0, fat:22, icon:'🍟'},
+  {name:'チキンナゲット（5個）',        kcal:245, carb:16, prot:14, fat:14, icon:'🍗'},
+  {name:'ピザ（マルゲリータ・1スライス）',kcal:250,carb:30,prot:11, fat:9.0, icon:'🍕'},
+  {name:'ピザ（1枚・Mサイズ）',         kcal:800, carb:96, prot:36, fat:28, icon:'🍕'},
+  {name:'フライドチキン（1本）',        kcal:280, carb:12, prot:18, fat:18, icon:'🍗'},
+  // ── 洋食 ──
+  {name:'グラタン（1人前）',            kcal:420, carb:35, prot:18, fat:22, icon:'🫕'},
+  {name:'ドリア（1人前）',              kcal:500, carb:55, prot:18, fat:22, icon:'🫕'},
+  {name:'ミートソースグラタン',         kcal:480, carb:42, prot:22, fat:22, icon:'🫕'},
+  {name:'ビーフシチュー（1人前）',      kcal:380, carb:24, prot:22, fat:20, icon:'🍲'},
+  {name:'ポークシチュー（1人前）',      kcal:350, carb:22, fat:18, prot:20, icon:'🍲'},
+  {name:'コロッケ（2個）',              kcal:280, carb:30, prot:7.0, fat:14, icon:'🥔'},
+  {name:'メンチカツ（1個）',            kcal:320, carb:22, prot:14, fat:20, icon:'🥩'},
+  // ── 中華・エスニック ──
+  {name:'春巻き（2本）',                kcal:280, carb:24, prot:8.0, fat:16, icon:'🥟'},
+  {name:'チャーシュー（100g）',         kcal:260, carb:6.0,prot:22, fat:16, icon:'🥩'},
+  {name:'バンバンジー（1人前）',        kcal:250, carb:10, prot:18, fat:16, icon:'🍗'},
+  {name:'エビチリ（1人前）',            kcal:280, carb:16, prot:20, fat:14, icon:'🦐'},
+  {name:'青椒肉絲（1人前）',            kcal:280, carb:10, prot:18, fat:18, icon:'🫑'},
+  {name:'麻婆豆腐（1人前）',            kcal:320, carb:14, prot:18, fat:20, icon:'🌶️'},
+  {name:'タイカレー（グリーン・1人前）',kcal:480, carb:20, prot:22, fat:32, icon:'🍛'},
+  {name:'ビーフカレー（欧風・1人前）',  kcal:700, carb:80, prot:25, fat:26, icon:'🍛'},
+  {name:'パッタイ（1人前）',            kcal:420, carb:52, prot:18, fat:14, icon:'🍜'},
+  {name:'フォー（1人前）',              kcal:380, carb:60, prot:18, fat:6.0, icon:'🍜'},
+  {name:'バインミー（1本）',            kcal:340, carb:44, prot:14, fat:12, icon:'🥖'},
+  {name:'キムチ（50g）',                kcal:18,  carb:3.0,prot:1.0, fat:0.3, icon:'🌶️'},
+  {name:'ビビンバ（1人前）',            kcal:550, carb:75, prot:22, fat:14, icon:'🍚'},
+  {name:'サムギョプサル（1人前）',      kcal:480, carb:4.0,prot:26, fat:40, icon:'🥩'},
+  {name:'タコス（2個）',                kcal:360, carb:36, prot:16, fat:16, icon:'🌮'},
+  {name:'ブリトー（1本）',              kcal:480, carb:56, prot:20, fat:18, icon:'🌯'},
+  // ── コンビニ食品 ──
+  {name:'コンビニおにぎり（梅・1個）',  kcal:178, carb:37, prot:3.5, fat:0.5, icon:'🍙'},
+  {name:'コンビニおにぎり（鮭・1個）',  kcal:195, carb:36, prot:6.0, fat:2.0, icon:'🍙'},
+  {name:'コンビニおにぎり（ツナマヨ）', kcal:230, carb:35, prot:5.5, fat:7.0, icon:'🍙'},
+  {name:'コンビニサンドイッチ',         kcal:340, carb:40, prot:12, fat:14, icon:'🥪'},
+  {name:'コンビニ肉まん（1個）',        kcal:220, carb:34, prot:8.0, fat:6.0, icon:'🥟'},
+  {name:'コンビニホットスナック（フランクフルト）',kcal:180,carb:12,prot:7.0,fat:11, icon:'🌭'},
+  {name:'コンビニカップ味噌汁',         kcal:28,  carb:3.2,prot:2.0, fat:0.8, icon:'🍵'},
+  {name:'コンビニ冷凍パスタ（1袋）',    kcal:420, carb:62, prot:14, fat:12, icon:'🍝'},
+  {name:'コンビニチキン（1本）',        kcal:260, carb:8.0,prot:18, fat:17, icon:'🍗'},
+  {name:'コンビニ惣菜（ポテトサラダ）', kcal:120, carb:13, prot:2.0, fat:7.0, icon:'🥗'},
+  // ── 果物 ──
+  {name:'バナナ（1本）',                kcal:86,  carb:22, prot:1.1, fat:0.2, icon:'🍌'},
+  {name:'りんご（1個）',                kcal:138, carb:36, prot:0.3, fat:0.2, icon:'🍎'},
+  {name:'みかん（2個）',                kcal:80,  carb:19, prot:1.0, fat:0.2, icon:'🍊'},
+  {name:'いちご（10粒）',               kcal:68,  carb:16, prot:1.0, fat:0.3, icon:'🍓'},
+  {name:'ぶどう（1房・200g）',          kcal:118, carb:29, prot:1.0, fat:0.2, icon:'🍇'},
+  {name:'スイカ（1切れ・200g）',        kcal:74,  carb:18, prot:1.0, fat:0.2, icon:'🍉'},
+  {name:'もも（1個）',                  kcal:102, carb:26, prot:1.0, fat:0.2, icon:'🍑'},
+  {name:'梨（1個）',                    kcal:108, carb:28, prot:0.5, fat:0.1, icon:'🍐'},
+  {name:'キウイ（1個）',                kcal:53,  carb:13, prot:1.0, fat:0.2, icon:'🥝'},
+  {name:'アボカド（1/2個）',            kcal:120, carb:3.0,prot:1.5, fat:11, icon:'🥑'},
+  {name:'グレープフルーツ（1/2個）',    kcal:76,  carb:19, prot:1.0, fat:0.1, icon:'🍊'},
+  {name:'マンゴー（1/2個）',            kcal:100, carb:25, prot:0.8, fat:0.3, icon:'🥭'},
+  {name:'ブルーベリー（100g）',         kcal:49,  carb:12, prot:0.7, fat:0.3, icon:'🫐'},
+  // ── スナック・菓子 ──
+  {name:'おせんべい（3枚）',            kcal:108, carb:23, prot:2.0, fat:1.0, icon:'🍘'},
+  {name:'ポテトチップス（1袋・60g）',   kcal:334, carb:35, prot:3.0, fat:20, icon:'🍟'},
+  {name:'ポップコーン（50g）',          kcal:215, carb:40, prot:4.0, fat:6.0, icon:'🍿'},
+  {name:'プリッツ（1箱）',              kcal:200, carb:34, prot:4.0, fat:5.0, icon:'🍬'},
+  {name:'柿の種（1袋・42g）',           kcal:193, carb:34, prot:4.0, fat:5.0, icon:'🍘'},
+  {name:'チョコレート（50g）',          kcal:270, carb:30, prot:3.0, fat:15, icon:'🍫'},
+  {name:'ミルクチョコレート（1枚）',    kcal:290, carb:35, prot:4.0, fat:16, icon:'🍫'},
+  {name:'ハイチュウ（1袋）',            kcal:280, carb:64, prot:1.0, fat:3.0, icon:'🍬'},
+  {name:'グミ（1袋・50g）',             kcal:160, carb:38, prot:2.5, fat:0.1, icon:'🍬'},
+  {name:'キャラメル（5個）',            kcal:125, carb:22, prot:1.5, fat:4.0, icon:'🍬'},
+  {name:'カントリーマアム（2枚）',      kcal:170, carb:24, prot:2.0, fat:7.0, icon:'🍪'},
+  {name:'チョコチップクッキー（2枚）',  kcal:180, carb:24, prot:2.0, fat:8.0, icon:'🍪'},
+  {name:'おかき（1袋・50g）',           kcal:188, carb:41, prot:3.5, fat:1.0, icon:'🍘'},
+  {name:'ナッツミックス（30g）',        kcal:185, carb:5.0,prot:5.5, fat:16, icon:'🥜'},
+  {name:'アーモンド（20粒）',           kcal:116, carb:3.0,prot:4.0, fat:10, icon:'🥜'},
+  {name:'くるみ（5個）',                kcal:140, carb:2.0,prot:3.0, fat:14, icon:'🥜'},
+  // ── デザート・スイーツ ──
+  {name:'ショートケーキ（1個）',        kcal:330, carb:40, prot:5.0, fat:15, icon:'🍰'},
+  {name:'チョコレートケーキ（1個）',    kcal:380, carb:45, prot:5.0, fat:20, icon:'🍰'},
+  {name:'チーズケーキ（1個）',          kcal:310, carb:28, prot:7.0, fat:18, icon:'🧁'},
+  {name:'アイスクリーム（バニラ・1個）',kcal:200, carb:25, prot:3.0, fat:9.0, icon:'🍦'},
+  {name:'アイスクリーム（カップ）',     kcal:300, carb:34, prot:5.0, fat:15, icon:'🍨'},
+  {name:'ソフトクリーム（1個）',        kcal:220, carb:28, prot:5.0, fat:10, icon:'🍦'},
+  {name:'シュークリーム（1個）',        kcal:210, carb:22, prot:4.0, fat:11, icon:'🧁'},
+  {name:'プリン（1個）',                kcal:130, carb:18, prot:5.0, fat:4.0, icon:'🍮'},
+  {name:'大福（1個）',                  kcal:190, carb:42, prot:3.0, fat:1.0, icon:'🍡'},
+  {name:'どら焼き（1個）',              kcal:260, carb:53, prot:5.0, fat:3.0, icon:'🍡'},
+  {name:'たい焼き（1個）',              kcal:190, carb:38, prot:4.0, fat:2.0, icon:'🐟'},
+  {name:'みたらし団子（1本）',          kcal:100, carb:22, prot:2.0, fat:0.5, icon:'🍡'},
+  {name:'わらび餅（1人前）',            kcal:150, carb:36, prot:1.0, fat:0.5, icon:'🍡'},
+  {name:'パフェ（1個）',                kcal:450, carb:65, prot:7.0, fat:16, icon:'🍨'},
+  {name:'クレープ（1枚）',              kcal:280, carb:40, prot:6.0, fat:10, icon:'🥞'},
+  {name:'パンケーキ（2枚）',            kcal:350, carb:52, prot:8.0, fat:12, icon:'🥞'},
+  {name:'ワッフル（1個）',              kcal:300, carb:42, prot:6.0, fat:12, icon:'🧇'},
+  {name:'マドレーヌ（1個）',            kcal:160, carb:20, prot:2.5, fat:8.0, icon:'🍰'},
+  // ── 飲み物（カロリーあり） ──
+  {name:'カフェラテ（Mサイズ）',        kcal:180, carb:18, prot:9.0, fat:7.0, icon:'☕'},
+  {name:'カフェモカ（Mサイズ）',        kcal:280, carb:34, prot:7.0, fat:12, icon:'☕'},
+  {name:'キャラメルマキアート（M）',    kcal:250, carb:36, prot:7.0, fat:8.0, icon:'☕'},
+  {name:'抹茶ラテ（Mサイズ）',          kcal:220, carb:28, prot:6.0, fat:8.0, icon:'🍵'},
+  {name:'オレンジジュース（200ml）',    kcal:84,  carb:20, prot:1.0, fat:0.2, icon:'🧃'},
+  {name:'100%アップルジュース（200ml）',kcal:96,  carb:24, prot:0.3, fat:0.1, icon:'🧃'},
+  {name:'野菜ジュース（200ml）',        kcal:72,  carb:16, prot:1.5, fat:0.2, icon:'🧃'},
+  {name:'コーラ（500ml）',              kcal:215, carb:55, prot:0.0, fat:0.0, icon:'🥤'},
+  {name:'コーラ（ゼロ・500ml）',        kcal:2,   carb:0.0,prot:0.0, fat:0.0, icon:'🥤'},
+  {name:'スポーツドリンク（500ml）',    kcal:115, carb:29, prot:0.0, fat:0.0, icon:'🥤'},
+  {name:'エナジードリンク（250ml）',    kcal:113, carb:28, prot:0.0, fat:0.0, icon:'🥤'},
+  {name:'甘酒（200ml）',                kcal:100, carb:23, prot:2.0, fat:0.2, icon:'🍵'},
+  {name:'豆乳（200ml）',                kcal:92,  carb:6.2,prot:7.2, fat:4.0, icon:'🥛'},
+  {name:'調製豆乳（200ml）',            kcal:128, carb:14, prot:5.8, fat:5.8, icon:'🥛'},
+  {name:'プロテインシェイク（1杯）',    kcal:160, carb:8.0,prot:25, fat:3.0, icon:'💪'},
+  // ── アルコール ──
+  {name:'ビール（350ml）',              kcal:140, carb:11, prot:1.5, fat:0.0, icon:'🍺'},
+  {name:'ビール（500ml）',              kcal:200, carb:16, prot:2.0, fat:0.0, icon:'🍺'},
+  {name:'発泡酒（350ml）',              kcal:159, carb:13, prot:0.5, fat:0.0, icon:'🍺'},
+  {name:'ハイボール（350ml）',          kcal:98,  carb:0.0,prot:0.0, fat:0.0, icon:'🥃'},
+  {name:'日本酒（1合・180ml）',         kcal:196, carb:8.8,prot:0.9, fat:0.0, icon:'🍶'},
+  {name:'ワイン（グラス1杯・120ml）',   kcal:88,  carb:1.6,prot:0.1, fat:0.0, icon:'🍷'},
+  {name:'焼酎ロック（1杯）',            kcal:142, carb:0.0,prot:0.0, fat:0.0, icon:'🥃'},
+  {name:'チューハイ（350ml）',          kcal:162, carb:12, prot:0.0, fat:0.0, icon:'🍹'},
+  {name:'梅酒ロック（1杯）',            kcal:160, carb:20, prot:0.1, fat:0.0, icon:'🥃'},
+  // ── カロリーゼロ・低カロリー ──
+  {name:'コーヒー（ブラック）',         kcal:4,   carb:0.7,prot:0.3, fat:0.0, icon:'☕'},
+  {name:'緑茶（1杯）',                  kcal:2,   carb:0.3,prot:0.2, fat:0.0, icon:'🍵'},
+  {name:'水（500ml）',                  kcal:0,   carb:0.0,prot:0.0, fat:0.0, icon:'💧'},
+  {name:'炭酸水（500ml）',              kcal:0,   carb:0.0,prot:0.0, fat:0.0, icon:'💧'},
+  {name:'麦茶（1杯）',                  kcal:1,   carb:0.3,prot:0.1, fat:0.0, icon:'🍵'},
+  {name:'紅茶（ストレート）',           kcal:2,   carb:0.2,prot:0.1, fat:0.0, icon:'🍵'},
+  {name:'ほうじ茶（1杯）',              kcal:2,   carb:0.3,prot:0.1, fat:0.0, icon:'🍵'},
+
+  // ── 和食・煮物・家庭料理 ──
+  {name:'肉じゃが（1人前）',            kcal:280, carb:30, prot:14, fat:10,  icon:'🥔'},
+  {name:'筑前煮（1人前）',              kcal:220, carb:22, prot:12, fat:8.0, icon:'🥕'},
+  {name:'ひじきと大豆の煮物',           kcal:120, carb:14, prot:6.0, fat:4.0, icon:'🌿'},
+  {name:'切り干し大根の煮物',           kcal:90,  carb:14, prot:3.0, fat:2.0, icon:'🌿'},
+  {name:'豆腐の味噌汁',                 kcal:45,  carb:3.5,prot:3.5, fat:1.8, icon:'🍵'},
+  {name:'わかめの味噌汁',               kcal:30,  carb:2.5,prot:2.0, fat:1.0, icon:'🍵'},
+  {name:'なめこの味噌汁',               kcal:28,  carb:3.0,prot:2.0, fat:0.8, icon:'🍵'},
+  {name:'あさりの味噌汁',               kcal:40,  carb:3.0,prot:4.0, fat:1.0, icon:'🍵'},
+  {name:'ほうれん草と豚肉の炒め物',     kcal:220, carb:4.0,prot:16, fat:15,  icon:'🥬'},
+  {name:'もやし炒め',                   kcal:120, carb:6.0,prot:5.0, fat:8.0, icon:'🌱'},
+  {name:'青菜の炒め物',                 kcal:100, carb:5.0,prot:4.0, fat:6.0, icon:'🥦'},
+  {name:'ゴボウのきんぴら',             kcal:110, carb:16, prot:2.5, fat:3.5, icon:'🥕'},
+  {name:'れんこんのきんぴら',           kcal:100, carb:18, prot:2.0, fat:2.5, icon:'🪨'},
+  {name:'かぼちゃの天ぷら（2個）',      kcal:160, carb:22, prot:2.0, fat:7.0, icon:'🎃'},
+  {name:'さつまいもの天ぷら（2個）',    kcal:180, carb:26, prot:1.5, fat:7.0, icon:'🍠'},
+  {name:'さつまいもの煮物',             kcal:140, carb:32, prot:1.5, fat:0.5, icon:'🍠'},
+  {name:'ふろふき大根（1人前）',        kcal:80,  carb:12, prot:2.0, fat:2.0, icon:'🌿'},
+  {name:'酢の物（きゅうりとわかめ）',   kcal:40,  carb:6.0,prot:2.0, fat:0.3, icon:'🥒'},
+  {name:'白和え（1人前）',              kcal:120, carb:10, prot:6.0, fat:5.0, icon:'🥣'},
+  {name:'卯の花（1人前）',              kcal:100, carb:8.0,prot:5.0, fat:4.5, icon:'🫘'},
+  {name:'煮豆（黒豆・50g）',            kcal:120, carb:20, prot:6.0, fat:2.0, icon:'🫘'},
+  {name:'栗きんとん（1人前）',          kcal:200, carb:45, prot:1.5, fat:0.5, icon:'🌰'},
+  {name:'だし巻き卵（2本）',            kcal:180, carb:5.0,prot:12, fat:11,  icon:'🍳'},
+  {name:'玉子焼き（1切れ）',            kcal:90,  carb:3.0,prot:6.0, fat:6.0, icon:'🍳'},
+  {name:'厚焼き玉子（1切れ）',          kcal:110, carb:4.0,prot:7.0, fat:7.0, icon:'🍳'},
+
+  // ── パスタ（詳細） ──
+  {name:'めんたいパスタ（1人前）',      kcal:540, carb:70, prot:20, fat:18,  icon:'🍝'},
+  {name:'ボンゴレビアンコ（1人前）',    kcal:450, carb:65, prot:22, fat:10,  icon:'🍝'},
+  {name:'ボンゴレロッソ（1人前）',      kcal:460, carb:68, prot:22, fat:10,  icon:'🍝'},
+  {name:'アラビアータ（1人前）',        kcal:480, carb:70, prot:12, fat:14,  icon:'🍝'},
+  {name:'パスタ（ジェノベーゼ）',       kcal:560, carb:66, prot:14, fat:22,  icon:'🍝'},
+  {name:'パスタ（ツナトマト）',         kcal:490, carb:68, prot:18, fat:12,  icon:'🍝'},
+  {name:'パスタ（クリームソース）',     kcal:620, carb:66, prot:16, fat:26,  icon:'🍝'},
+  {name:'パスタ（イカスミ）',           kcal:480, carb:65, prot:18, fat:14,  icon:'🍝'},
+  {name:'パスタ（ポモドーロ）',         kcal:420, carb:68, prot:10, fat:10,  icon:'🍝'},
+  {name:'ニョッキ（トマトソース）',     kcal:380, carb:62, prot:8.0, fat:10, icon:'🍝'},
+  {name:'リゾット（キノコ）',           kcal:420, carb:58, prot:10, fat:14,  icon:'🍚'},
+  {name:'リゾット（海老）',             kcal:450, carb:58, prot:18, fat:14,  icon:'🍚'},
+
+  // ── ピザ（詳細） ──
+  {name:'ピザ（クワトロフォルマッジ）', kcal:320, carb:30, prot:14, fat:16,  icon:'🍕'},
+  {name:'ピザ（シーフード）',           kcal:260, carb:30, prot:14, fat:9.0, icon:'🍕'},
+  {name:'ピザ（ペパロニ）',             kcal:310, carb:30, prot:13, fat:15,  icon:'🍕'},
+  {name:'ピザ（テリヤキチキン）',       kcal:280, carb:32, prot:14, fat:10,  icon:'🍕'},
+  {name:'ピザトースト',                 kcal:280, carb:32, prot:12, fat:12,  icon:'🍕'},
+
+  // ── イタリアン・洋食（詳細） ──
+  {name:'ラザニア（1人前）',            kcal:520, carb:44, prot:24, fat:24,  icon:'🫕'},
+  {name:'ティラミス（1個）',            kcal:280, carb:28, prot:6.0, fat:16, icon:'🍰'},
+  {name:'パンナコッタ（1個）',          kcal:200, carb:20, prot:3.0, fat:12, icon:'🍮'},
+  {name:'カプレーゼ（1人前）',          kcal:220, carb:4.0,prot:12, fat:18,  icon:'🍅'},
+  {name:'ブルスケッタ（2枚）',          kcal:180, carb:24, prot:4.0, fat:7.0, icon:'🍅'},
+  {name:'シーザーサラダ（大）',         kcal:280, carb:14, prot:10, fat:20,  icon:'🥗'},
+  {name:'ニース風サラダ',               kcal:250, carb:12, prot:16, fat:14,  icon:'🥗'},
+  {name:'クラムチャウダー（1杯）',      kcal:180, carb:16, prot:10, fat:8.0, icon:'🍵'},
+  {name:'フレンチオニオンスープ（1杯）',kcal:200, carb:20, prot:7.0, fat:9.0,icon:'🧅'},
+  {name:'ポトフ（1人前）',              kcal:220, carb:18, prot:16, fat:8.0, icon:'🍲'},
+  {name:'ラタトゥイユ（1人前）',        kcal:150, carb:16, prot:3.0, fat:8.0, icon:'🥦'},
+  {name:'キッシュ（1切れ）',            kcal:280, carb:18, prot:10, fat:18,  icon:'🥧'},
+  {name:'ポークソテー（1枚）',          kcal:360, carb:4.0,prot:26, fat:26,  icon:'🥩'},
+  {name:'チキンソテー（1枚）',          kcal:300, carb:2.0,prot:28, fat:18,  icon:'🍗'},
+  {name:'ロールキャベツ（2個）',        kcal:280, carb:16, fat:14, prot:16,  icon:'🥬'},
+  {name:'ムニエル（鮭・1切れ）',        kcal:280, carb:6.0,prot:24, fat:16,  icon:'🐟'},
+
+  // ── 中華・台湾・アジア（詳細） ──
+  {name:'小籠包（5個）',                kcal:280, carb:28, prot:14, fat:12,  icon:'🥟'},
+  {name:'肉まん（1個・大）',            kcal:280, carb:38, prot:12, fat:8.0, icon:'🥟'},
+  {name:'あんまん（1個）',              kcal:300, carb:52, prot:6.0, fat:7.0, icon:'🥟'},
+  {name:'炒飯（大盛り）',               kcal:780, carb:90, prot:22, fat:30,  icon:'🍳'},
+  {name:'天津飯',                       kcal:560, carb:78, prot:16, fat:18,  icon:'🍳'},
+  {name:'エビのチリソース',             kcal:260, carb:14, prot:20, fat:12,  icon:'🦐'},
+  {name:'八宝菜（1人前）',              kcal:200, carb:14, prot:14, fat:8.0, icon:'🥦'},
+  {name:'中華丼',                       kcal:580, carb:80, prot:18, fat:14,  icon:'🍚'},
+  {name:'担々麺',                       kcal:600, carb:68, prot:22, fat:24,  icon:'🍜'},
+  {name:'チャーシュー麺',               kcal:520, carb:68, prot:24, fat:14,  icon:'🍜'},
+  {name:'五目ラーメン',                 kcal:500, carb:66, prot:20, fat:14,  icon:'🍜'},
+  {name:'海老ワンタン麺',               kcal:460, carb:62, prot:20, fat:10,  icon:'🍜'},
+  {name:'ルーローハン（1人前）',        kcal:580, carb:72, prot:22, fat:20,  icon:'🍚'},
+  {name:'台湾まぜそば',                 kcal:650, carb:78, prot:26, fat:22,  icon:'🍜'},
+  {name:'マーボーナス（1人前）',        kcal:280, carb:12, prot:12, fat:18,  icon:'🍆'},
+  {name:'回鍋肉（ホイコーロー）',       kcal:340, carb:10, prot:18, fat:24,  icon:'🥬'},
+  {name:'チンジャオロース（1人前）',    kcal:300, carb:12, prot:18, fat:18,  icon:'🫑'},
+  {name:'バンバンジー',                 kcal:250, carb:8.0,prot:18, fat:16,  icon:'🍗'},
+  {name:'棒棒鶏サラダ',                 kcal:220, carb:10, prot:16, fat:12,  icon:'🥗'},
+
+  // ── 韓国料理（詳細） ──
+  {name:'チヂミ（1枚）',                kcal:300, carb:36, prot:8.0, fat:14, icon:'🥞'},
+  {name:'プルコギ（1人前）',            kcal:380, carb:12, prot:26, fat:24,  icon:'🥩'},
+  {name:'ユッケジャン（1杯）',          kcal:280, carb:10, prot:20, fat:16,  icon:'🍲'},
+  {name:'スンドゥブチゲ（1人前）',      kcal:300, carb:8.0,prot:18, fat:18,  icon:'🍲'},
+  {name:'テジカルビ（1人前）',          kcal:420, carb:8.0,prot:28, fat:30,  icon:'🥩'},
+  {name:'クッパ（1人前）',              kcal:380, carb:42, prot:20, fat:12,  icon:'🍲'},
+  {name:'トッポギ（1人前）',            kcal:320, carb:60, prot:6.0, fat:4.0,icon:'🌶️'},
+  {name:'海苔巻き（キンパ・1本）',      kcal:320, carb:52, prot:10, fat:8.0, icon:'🍣'},
+  {name:'冷麺（1人前）',                kcal:380, carb:68, prot:12, fat:4.0, icon:'🍜'},
+  {name:'参鶏湯（サムゲタン・1人前）',  kcal:380, carb:20, prot:32, fat:14,  icon:'🍲'},
+
+  // ── インド・カレー系 ──
+  {name:'バターチキンカレー（1人前）',  kcal:480, carb:18, prot:24, fat:30,  icon:'🍛'},
+  {name:'ほうれん草カレー（1人前）',    kcal:380, carb:16, prot:18, fat:24,  icon:'🍛'},
+  {name:'チキンティッカマサラ',         kcal:420, carb:14, prot:26, fat:26,  icon:'🍛'},
+  {name:'ナン（1枚）',                  kcal:260, carb:48, prot:8.0, fat:4.0,icon:'🫓'},
+  {name:'チャパティ（1枚）',            kcal:140, carb:28, prot:4.0, fat:2.0,icon:'🫓'},
+  {name:'ラッシー（1杯）',              kcal:120, carb:16, prot:4.0, fat:4.0,icon:'🥛'},
+  {name:'ダル（レンズ豆カレー）',       kcal:200, carb:28, prot:10, fat:5.0, icon:'🫘'},
+  {name:'サモサ（2個）',                kcal:280, carb:34, prot:6.0, fat:14, icon:'🥟'},
+
+  // ── メキシカン・南米 ──
+  {name:'ナチョス（1人前）',            kcal:400, carb:48, prot:10, fat:18,  icon:'🌮'},
+  {name:'チリコンカン（1人前）',        kcal:320, carb:30, prot:18, fat:12,  icon:'🫘'},
+  {name:'アボカドトースト',             kcal:280, carb:28, prot:6.0, fat:16, icon:'🥑'},
+  {name:'グアカモーレ（50g）',          kcal:90,  carb:4.0,prot:1.0, fat:8.0,icon:'🥑'},
+  {name:'エンチラーダ（1個）',          kcal:380, carb:38, prot:18, fat:16,  icon:'🌯'},
+
+  // ── 朝食・ブランチ ──
+  {name:'フレンチトースト（2枚）',      kcal:380, carb:46, prot:12, fat:16,  icon:'🍞'},
+  {name:'エッグベネディクト',           kcal:420, carb:28, prot:18, fat:26,  icon:'🍳'},
+  {name:'アメリカンブレックファスト',   kcal:680, carb:42, prot:28, fat:40,  icon:'🍳'},
+  {name:'グラノーラ（1食・50g）',       kcal:220, carb:36, prot:5.0, fat:7.0,icon:'🥣'},
+  {name:'グラノーラ（牛乳付き）',       kcal:360, carb:48, prot:11, fat:12,  icon:'🥣'},
+  {name:'オートミール（1杯）',          kcal:150, carb:27, prot:5.0, fat:3.0,icon:'🥣'},
+  {name:'シリアル（コーンフレーク）',   kcal:180, carb:40, prot:3.0, fat:1.0,icon:'🥣'},
+  {name:'ミューズリー（1食）',          kcal:200, carb:38, prot:5.0, fat:4.0,icon:'🥣'},
+  {name:'スムージー（バナナ・200ml）',  kcal:140, carb:30, prot:2.0, fat:1.0,icon:'🥤'},
+  {name:'スムージー（緑・200ml）',      kcal:80,  carb:16, prot:2.0, fat:0.5,icon:'🥤'},
+  {name:'アサイーボウル',               kcal:300, carb:50, prot:5.0, fat:8.0,icon:'🍇'},
+
+  // ── 寿司・海鮮（詳細） ──
+  {name:'寿司（イクラ2貫）',            kcal:140, carb:22, prot:8.0, fat:4.0,icon:'🍣'},
+  {name:'寿司（ウニ2貫）',              kcal:120, carb:22, prot:6.0, fat:2.0,icon:'🍣'},
+  {name:'寿司（エビ2貫）',              kcal:110, carb:22, prot:6.0, fat:1.0,icon:'🍣'},
+  {name:'寿司（穴子2貫）',              kcal:150, carb:22, prot:8.0, fat:5.0,icon:'🍣'},
+  {name:'寿司（玉子2貫）',              kcal:130, carb:24, prot:4.0, fat:3.0,icon:'🍣'},
+  {name:'ちらし寿司（1人前）',          kcal:520, carb:72, prot:22, fat:10,  icon:'🍣'},
+  {name:'いなり寿司（3個）',            kcal:300, carb:52, prot:7.0, fat:6.0,icon:'🍣'},
+  {name:'太巻き（1本）',                kcal:320, carb:56, prot:10, fat:5.0, icon:'🍣'},
+  {name:'カリフォルニアロール（6個）',  kcal:280, carb:44, prot:8.0, fat:7.0,icon:'🍣'},
+  {name:'牡蠣フライ（3個）',            kcal:300, carb:22, prot:14, fat:16,  icon:'🦪'},
+  {name:'牡蠣の酒蒸し（6個）',          kcal:120, carb:8.0,prot:14, fat:3.0, icon:'🦪'},
+  {name:'あさりの酒蒸し（1人前）',      kcal:80,  carb:4.0,prot:12, fat:1.5, icon:'🐚'},
+  {name:'ホタテのバター焼き（2個）',    kcal:160, carb:4.0,prot:16, fat:8.0, icon:'🐚'},
+  {name:'ズワイガニ（1人前）',          kcal:120, carb:1.0,prot:20, fat:2.0, icon:'🦀'},
+  {name:'天ぷら盛り合わせ（1人前）',    kcal:480, carb:40, prot:16, fat:24,  icon:'🍤'},
+
+  // ── そば・うどん（詳細） ──
+  {name:'月見うどん',                   kcal:360, carb:60, prot:14, fat:6.0, icon:'🍜'},
+  {name:'カレーうどん',                 kcal:480, carb:68, prot:16, fat:14,  icon:'🍜'},
+  {name:'肉うどん（牛）',               kcal:460, carb:62, prot:20, fat:12,  icon:'🍜'},
+  {name:'天ぷらうどん',                 kcal:500, carb:72, prot:16, fat:16,  icon:'🍜'},
+  {name:'鍋焼きうどん',                 kcal:520, carb:68, prot:20, fat:14,  icon:'🍜'},
+  {name:'月見そば',                     kcal:340, carb:54, prot:16, fat:5.0, icon:'🍜'},
+  {name:'天ぷらそば',                   kcal:480, carb:68, prot:18, fat:14,  icon:'🍜'},
+  {name:'鴨南蛮そば',                   kcal:480, carb:56, prot:22, fat:16,  icon:'🍜'},
+  {name:'とろろそば',                   kcal:360, carb:60, prot:14, fat:2.0, icon:'🍜'},
+  {name:'おろしそば',                   kcal:330, carb:58, prot:13, fat:2.0, icon:'🍜'},
+  {name:'冷やしうどん',                 kcal:300, carb:62, prot:9.0, fat:1.0,icon:'🍜'},
+
+  // ── 丼（詳細） ──
+  {name:'ネギトロ丼',                   kcal:500, carb:70, prot:22, fat:10,  icon:'🐟'},
+  {name:'鶏そぼろ丼',                   kcal:520, carb:74, prot:22, fat:10,  icon:'🍚'},
+  {name:'イクラ丼',                     kcal:520, carb:70, prot:24, fat:10,  icon:'🍚'},
+  {name:'うな丼（1人前）',              kcal:680, carb:80, prot:28, fat:22,  icon:'🍚'},
+  {name:'うな重（1人前）',              kcal:720, carb:82, prot:30, fat:24,  icon:'🍱'},
+  {name:'ローストビーフ丼',             kcal:620, carb:72, prot:28, fat:20,  icon:'🥩'},
+  {name:'スタミナ丼',                   kcal:680, carb:80, prot:26, fat:22,  icon:'🍚'},
+  {name:'豚丼（並）',                   kcal:600, carb:80, prot:22, fat:18,  icon:'🥩'},
+  {name:'まぐろ漬け丼',                 kcal:480, carb:70, prot:28, fat:4.0, icon:'🐟'},
+
+  // ── 焼きもの・串もの ──
+  {name:'焼き鳥（ねぎま・2本）',        kcal:180, carb:4.0,prot:18, fat:9.0, icon:'🍢'},
+  {name:'焼き鳥（砂肝・2本）',          kcal:120, carb:1.0,prot:16, fat:5.0, icon:'🍢'},
+  {name:'焼き鳥（レバー・2本）',        kcal:130, carb:2.0,prot:16, fat:6.0, icon:'🍢'},
+  {name:'焼き鳥（つくね・2本）',        kcal:200, carb:8.0,prot:14, fat:12,  icon:'🍢'},
+  {name:'豚串（2本）',                  kcal:200, carb:2.0,prot:14, fat:14,  icon:'🍢'},
+  {name:'やきとん（2本）',              kcal:180, carb:3.0,prot:12, fat:12,  icon:'🍢'},
+  {name:'牛串（2本）',                  kcal:240, carb:1.0,prot:16, fat:18,  icon:'🥩'},
+  {name:'焼き野菜盛り合わせ',           kcal:120, carb:16, prot:4.0, fat:4.0,icon:'🥦'},
+  {name:'焼きとうもろこし（1本）',      kcal:170, carb:34, prot:4.0, fat:2.0,icon:'🌽'},
+
+  // ── スープ・シチュー（詳細） ──
+  {name:'トマトスープ（1杯）',          kcal:80,  carb:10, prot:2.0, fat:3.0,icon:'🍅'},
+  {name:'コンソメスープ（1杯）',        kcal:30,  carb:2.0,prot:2.0, fat:0.5,icon:'🍵'},
+  {name:'クリームシチュー（1人前）',    kcal:380, carb:28, prot:16, fat:20,  icon:'🍲'},
+  {name:'ハッシュドビーフ（1人前）',    kcal:400, carb:26, prot:20, fat:22,  icon:'🍲'},
+  {name:'チキンシチュー（1人前）',      kcal:340, carb:24, fat:16, prot:20,  icon:'🍲'},
+  {name:'スープカレー（1人前）',        kcal:420, carb:30, prot:20, fat:22,  icon:'🍛'},
+  {name:'豆腐と野菜のスープ',           kcal:80,  carb:6.0,prot:6.0, fat:2.0,icon:'🥣'},
+  {name:'卵スープ（1杯）',              kcal:60,  carb:3.0,prot:5.0, fat:3.0,icon:'🍵'},
+  {name:'中華スープ（1杯）',            kcal:50,  carb:4.0,prot:3.0, fat:2.0,icon:'🍵'},
+
+  // ── 弁当・惣菜（詳細） ──
+  {name:'ロースかつ弁当',               kcal:820, carb:88, prot:32, fat:32,  icon:'🍱'},
+  {name:'焼肉弁当',                     kcal:750, carb:82, prot:28, fat:28,  icon:'🍱'},
+  {name:'唐揚げ弁当（大）',             kcal:850, carb:88, prot:36, fat:30,  icon:'🍱'},
+  {name:'チキン南蛮弁当',               kcal:780, carb:82, prot:30, fat:28,  icon:'🍱'},
+  {name:'ミックスフライ弁当',           kcal:800, carb:85, prot:28, fat:32,  icon:'🍱'},
+  {name:'ハンバーグ弁当',               kcal:720, carb:78, prot:26, fat:28,  icon:'🍱'},
+  {name:'鮭弁当',                       kcal:580, carb:74, prot:24, fat:12,  icon:'🍱'},
+  {name:'梅干し弁当',                   kcal:520, carb:78, prot:14, fat:8.0, icon:'🍱'},
+  {name:'コンビニチルド弁当（一般的）', kcal:650, carb:80, prot:22, fat:20,  icon:'🍱'},
+  {name:'コンビニパスタサラダ',         kcal:200, carb:28, prot:6.0, fat:8.0,icon:'🥗'},
+  {name:'コンビニシーザーサラダ',       kcal:150, carb:8.0,prot:5.0, fat:11, icon:'🥗'},
+  {name:'コンビニ冷やし中華',           kcal:420, carb:68, prot:14, fat:10,  icon:'🍜'},
+  {name:'コンビニ焼きそば',             kcal:440, carb:65, prot:12, fat:14,  icon:'🍳'},
+
+  // ── ファストフード（詳細） ──
+  {name:'テリヤキバーガー',             kcal:480, carb:52, prot:18, fat:20,  icon:'🍔'},
+  {name:'フィッシュバーガー',           kcal:420, carb:46, prot:16, fat:18,  icon:'🍔'},
+  {name:'チキンバーガー',               kcal:450, carb:44, prot:20, fat:20,  icon:'🍔'},
+  {name:'ベーコンエッグバーガー',       kcal:520, carb:42, prot:22, fat:28,  icon:'🍔'},
+  {name:'ポテトウェッジ（M）',          kcal:360, carb:48, prot:4.0, fat:16, icon:'🍟'},
+  {name:'オニオンリング（M）',          kcal:380, carb:46, prot:4.0, fat:20, icon:'🧅'},
+  {name:'チキンサンド',                 kcal:480, carb:48, prot:22, fat:20,  icon:'🥪'},
+  {name:'ソフトツイスト（1個）',        kcal:180, carb:28, prot:4.0, fat:5.0,icon:'🍦'},
+  {name:'アップルパイ（1個）',          kcal:240, carb:34, prot:2.0, fat:11, icon:'🥧'},
+
+  // ── スイーツ・パン（詳細） ──
+  {name:'ドーナツ（プレーン・1個）',    kcal:260, carb:34, prot:4.0, fat:12, icon:'🍩'},
+  {name:'ドーナツ（チョコ・1個）',      kcal:310, carb:40, prot:4.0, fat:15, icon:'🍩'},
+  {name:'シナモンロール（1個）',        kcal:350, carb:52, prot:6.0, fat:14, icon:'🥐'},
+  {name:'スコーン（1個）',              kcal:220, carb:30, prot:4.0, fat:10, icon:'🥐'},
+  {name:'マフィン（ブルーベリー・1個）',kcal:280, carb:42, prot:4.0, fat:10, icon:'🧁'},
+  {name:'カップケーキ（1個）',          kcal:320, carb:44, prot:4.0, fat:14, icon:'🧁'},
+  {name:'ガトーショコラ（1切れ）',      kcal:340, carb:36, prot:6.0, fat:20, icon:'🍰'},
+  {name:'モンブラン（1個）',            kcal:350, carb:44, prot:5.0, fat:18, icon:'🍰'},
+  {name:'いちごタルト（1個）',          kcal:320, carb:38, prot:5.0, fat:16, icon:'🥧'},
+  {name:'フルーツポンチ（1人前）',      kcal:120, carb:28, prot:1.0, fat:0.2,icon:'🍓'},
+  {name:'杏仁豆腐（1個）',              kcal:120, carb:18, prot:3.0, fat:4.0,icon:'🍮'},
+  {name:'ゼリー（1個）',                kcal:70,  carb:16, prot:2.0, fat:0.1,icon:'🍮'},
+  {name:'ようかん（1切れ）',            kcal:160, carb:38, prot:2.0, fat:0.2,icon:'🍡'},
+  {name:'草餅（1個）',                  kcal:130, carb:28, prot:2.5, fat:0.5,icon:'🍡'},
+  {name:'桜餅（1個）',                  kcal:160, carb:34, prot:3.0, fat:1.0,icon:'🌸'},
+  {name:'柏餅（1個）',                  kcal:150, carb:32, prot:3.0, fat:0.8,icon:'🍡'},
+  {name:'おはぎ（1個）',                kcal:180, carb:38, prot:3.5, fat:1.5,icon:'🍡'},
+  {name:'甘酒（ノンアルコール・200ml）',kcal:100, carb:23, prot:2.0, fat:0.2,icon:'🍵'},
+
+  // ── たんぱく質・フィットネス食 ──
+  {name:'サラダチキン（ハーブ・1個）',  kcal:110, carb:0.5,prot:24, fat:1.5, icon:'🍗'},
+  {name:'サラダチキン（スモーク・1個）',kcal:120, carb:1.0,prot:24, fat:2.0, icon:'🍗'},
+  {name:'ゆで鶏むね肉（100g）',         kcal:116, carb:0.0,prot:24, fat:1.9, icon:'🍗'},
+  {name:'ゆで鶏もも肉（100g）',         kcal:190, carb:0.0,prot:20, fat:12,  icon:'🍗'},
+  {name:'ゆでブロッコリー（1株）',      kcal:55,  carb:6.0,prot:6.0, fat:0.6,icon:'🥦'},
+  {name:'蒸しさつまいも（100g）',       kcal:131, carb:30, prot:1.5, fat:0.2,icon:'🍠'},
+  {name:'プロテインバー（1本）',        kcal:200, carb:22, prot:20, fat:6.0, icon:'💪'},
+  {name:'ゆで卵（2個）',                kcal:154, carb:0.6,prot:13, fat:10,  icon:'🥚'},
+  {name:'ツナ缶（水煮・1缶）',          kcal:71,  carb:0.0,prot:16, fat:0.7, icon:'🐟'},
+  {name:'ツナ缶（油漬け・1缶）',        kcal:185, carb:0.0,prot:14, fat:14,  icon:'🐟'},
+  {name:'さば缶（水煮・1缶）',          kcal:190, carb:0.3,prot:20, fat:11,  icon:'🐟'},
+  {name:'さば缶（味噌・1缶）',          kcal:240, carb:8.0,prot:18, fat:12,  icon:'🐟'},
+  {name:'カッテージチーズ（100g）',     kcal:99,  carb:2.0,prot:15, fat:2.0, icon:'🧀'},
+  {name:'ギリシャヨーグルト（200g）',   kcal:194, carb:7.2,prot:18, fat:10,  icon:'🥛'},
+  {name:'無脂肪ヨーグルト（100g）',     kcal:40,  carb:5.0,prot:4.0, fat:0.1,icon:'🥛'},
+  {name:'アーモンドミルク（200ml）',    kcal:40,  carb:3.0,prot:1.0, fat:2.5, icon:'🥛'},
+  {name:'ゆで鶏もも肉（100g）',         kcal:190, carb:0.0,prot:20, fat:12,  icon:'🍗'},
+  {name:'ゆでブロッコリー（1株）',      kcal:55,  carb:6.0,prot:6.0, fat:0.6,icon:'🥦'},
+  {name:'蒸しさつまいも（100g）',       kcal:131, carb:30, prot:1.5, fat:0.2,icon:'🍠'},
+  {name:'プロテインバー（1本）',        kcal:200, carb:22, prot:20, fat:6.0, icon:'💪'},
+  {name:'ゆで卵（2個）',                kcal:154, carb:0.6,prot:13, fat:10,  icon:'🥚'},
+  {name:'ツナ缶（水煮・1缶）',          kcal:71,  carb:0.0,prot:16, fat:0.7, icon:'🐟'},
+  {name:'ツナ缶（油漬け・1缶）',        kcal:185, carb:0.0,prot:14, fat:14,  icon:'🐟'},
+  {name:'さば缶（水煮・1缶）',          kcal:190, carb:0.3,prot:20, fat:11,  icon:'🐟'},
+  {name:'さば缶（味噌・1缶）',          kcal:240, carb:8.0,prot:18, fat:12,  icon:'🐟'},
+  {name:'カッテージチーズ（100g）',     kcal:99,  carb:2.0,prot:15, fat:2.0, icon:'🧀'},
+  {name:'ギリシャヨーグルト（200g）',   kcal:194, carb:7.2,prot:18, fat:10,  icon:'🥛'},
+  {name:'無脂肪ヨーグルト（100g）',     kcal:40,  carb:5.0,prot:4.0, fat:0.1,icon:'🥛'},
+  {name:'アーモンドミルク（200ml）',    kcal:40,  carb:3.0,prot:1.0, fat:2.5, icon:'🥛'},
+  {name:'オートミール（牛乳で・1杯）',  kcal:250, carb:36, prot:9.0, fat:7.0,icon:'🥣'},
+
+  // ── パスタ各種（ご指摘品含む） ──
+  {name:'めんたいパスタ',               kcal:580, carb:70, prot:22, fat:20,  icon:'🍝'},
+  {name:'明太子パスタ',                 kcal:580, carb:70, prot:22, fat:20,  icon:'🍝'},
+  {name:'ボンゴレビアンコ',             kcal:490, carb:65, prot:22, fat:12,  icon:'🍝'},
+  {name:'ボンゴレロッソ',               kcal:510, carb:68, prot:22, fat:13,  icon:'🍝'},
+  {name:'アラビアータ',                 kcal:490, carb:68, prot:12, fat:14,  icon:'🍝'},
+  {name:'ジェノベーゼパスタ',           kcal:620, carb:68, prot:14, fat:28,  icon:'🍝'},
+  {name:'トマトクリームパスタ',         kcal:640, carb:68, prot:16, fat:28,  icon:'🍝'},
+  {name:'和風きのこパスタ',             kcal:480, carb:66, prot:14, fat:14,  icon:'🍝'},
+  {name:'ツナパスタ',                   kcal:520, carb:66, prot:18, fat:16,  icon:'🍝'},
+  {name:'えびクリームパスタ',           kcal:660, carb:66, prot:20, fat:30,  icon:'🍝'},
+  {name:'アンチョビとオリーブのパスタ', kcal:530, carb:65, prot:14, fat:20,  icon:'🍝'},
+  {name:'鶏肉のトマトパスタ',           kcal:560, carb:66, prot:24, fat:18,  icon:'🍝'},
+  {name:'ベーコンとほうれん草のパスタ', kcal:600, carb:65, prot:18, fat:24,  icon:'🍝'},
+  {name:'パスタサラダ（1人前）',        kcal:380, carb:52, prot:10, fat:14,  icon:'🍝'},
+
+  // ── 和食・煮物・家庭料理追加 ──
+  {name:'肉じゃが（1人前）',            kcal:280, carb:30, prot:14, fat:10,  icon:'🥔'},
+  {name:'筑前煮（1人前）',              kcal:220, carb:22, prot:12, fat:8.0, icon:'🥕'},
+  {name:'さつまいもの煮物',             kcal:160, carb:36, prot:1.5, fat:0.5,icon:'🍠'},
+  {name:'れんこんのきんぴら',           kcal:100, carb:16, prot:2.5, fat:2.5,icon:'🌿'},
+  {name:'ごぼうのきんぴら',             kcal:95,  carb:14, prot:2.0, fat:3.0,icon:'🥕'},
+  {name:'牛肉と野菜の煮物',             kcal:300, carb:18, prot:20, fat:15,  icon:'🥩'},
+  {name:'豚肉と根菜の煮物',             kcal:270, carb:22, prot:16, fat:12,  icon:'🥩'},
+  {name:'鶏肉の水炊き（1人前）',        kcal:320, carb:6.0,prot:28, fat:18,  icon:'🍲'},
+  {name:'高野豆腐の煮物',               kcal:140, carb:5.0,prot:12, fat:7.0, icon:'🥄'},
+  {name:'がんもどきの煮物',             kcal:180, carb:6.0,prot:10, fat:12,  icon:'🥄'},
+  {name:'厚揚げの煮物',                 kcal:160, carb:5.0,prot:10, fat:10,  icon:'🥄'},
+  {name:'いんげんの胡麻和え',           kcal:60,  carb:6.0,prot:3.0, fat:3.0,icon:'🌿'},
+  {name:'白和え（1人前）',              kcal:130, carb:10, prot:7.0, fat:6.0,icon:'🥄'},
+  {name:'酢の物（わかめときゅうり）',   kcal:30,  carb:5.0,prot:1.5, fat:0.3,icon:'🥒'},
+  {name:'なます（大根と人参）',         kcal:45,  carb:10, prot:0.5, fat:0.1,icon:'🥕'},
+  {name:'煮豆（黒豆）',                 kcal:200, carb:36, prot:8.0, fat:2.5,icon:'🫘'},
+  {name:'栗きんとん',                   kcal:230, carb:52, prot:2.0, fat:0.5,icon:'🌰'},
+  {name:'お雑煮（1杯）',                kcal:250, carb:38, prot:10, fat:5.0, icon:'🍵'},
+  {name:'七草がゆ',                     kcal:180, carb:38, prot:4.0, fat:0.8,icon:'🍵'},
+
+  // ── 焼き物・揚げ物追加 ──
+  {name:'鶏の唐揚げ（甘酢あん）',       kcal:380, carb:24, prot:22, fat:20,  icon:'🍗'},
+  {name:'豚の唐揚げ（3個）',            kcal:310, carb:14, prot:20, fat:20,  icon:'🥩'},
+  {name:'いわしの梅煮',                 kcal:200, carb:6.0,prot:18, fat:11,  icon:'🐟'},
+  {name:'いわしの蒲焼き',               kcal:240, carb:12, prot:18, fat:12,  icon:'🐟'},
+  {name:'あじの塩焼き（1尾）',          kcal:145, carb:0.1,prot:18, fat:7.0, icon:'🐟'},
+  {name:'ぶりの照り焼き（1切れ）',      kcal:260, carb:8.0,prot:22, fat:14,  icon:'🐟'},
+  {name:'鮭のムニエル（1切れ）',        kcal:230, carb:5.0,prot:22, fat:12,  icon:'🐟'},
+  {name:'鶏のみぞれ煮',                 kcal:220, carb:10, prot:24, fat:8.0, icon:'🍗'},
+  {name:'揚げ出し豆腐（1人前）',        kcal:200, carb:14, prot:10, fat:10,  icon:'🥄'},
+  {name:'かきフライ（3個）',            kcal:280, carb:22, prot:12, fat:14,  icon:'🦪'},
+  {name:'ホタテのバター焼き（2個）',    kcal:180, carb:4.0,prot:16, fat:10,  icon:'🐚'},
+  {name:'エビのマヨネーズ炒め',         kcal:320, carb:10, prot:18, fat:22,  icon:'🦐'},
+  {name:'イカリング（5個）',            kcal:240, carb:20, prot:12, fat:12,  icon:'🦑'},
+  {name:'白身魚のフライ（2枚）',        kcal:300, carb:22, prot:16, fat:16,  icon:'🐟'},
+
+  // ── 丼・定食追加 ──
+  {name:'うな丼（並）',                 kcal:620, carb:80, prot:22, fat:18,  icon:'🐍'},
+  {name:'うな重（1人前）',              kcal:700, carb:86, prot:24, fat:20,  icon:'🐍'},
+  {name:'鉄火丼',                       kcal:460, carb:68, prot:26, fat:4.0, icon:'🐟'},
+  {name:'いくら丼',                     kcal:520, carb:70, prot:22, fat:10,  icon:'🐠'},
+  {name:'ちらし寿司（1人前）',          kcal:560, carb:76, prot:20, fat:12,  icon:'🍣'},
+  {name:'かつ丼',                       kcal:780, carb:88, prot:32, fat:28,  icon:'🥩'},
+  {name:'まぐろのヅケ丼',              kcal:490, carb:70, prot:26, fat:6.0, icon:'🐟'},
+  {name:'サーモン丼',                   kcal:530, carb:70, prot:24, fat:12,  icon:'🐠'},
+  {name:'ネギトロ丼',                   kcal:510, carb:68, prot:22, fat:12,  icon:'🐟'},
+  {name:'天ぷら定食',                   kcal:820, carb:95, prot:22, fat:28,  icon:'🍱'},
+  {name:'そば定食',                     kcal:560, carb:80, prot:20, fat:10,  icon:'🍱'},
+  {name:'うどん定食',                   kcal:540, carb:82, prot:18, fat:8.0, icon:'🍱'},
+  {name:'ハンバーグ定食',               kcal:720, carb:70, prot:28, fat:32,  icon:'🍱'},
+  {name:'チキンステーキ定食',           kcal:680, carb:68, prot:36, fat:26,  icon:'🍱'},
+
+  // ── 麺類追加 ──
+  {name:'鍋焼きうどん',                 kcal:420, carb:60, prot:18, fat:10,  icon:'🍜'},
+  {name:'カレーうどん',                 kcal:480, carb:68, prot:18, fat:12,  icon:'🍜'},
+  {name:'月見うどん',                   kcal:330, carb:58, prot:12, fat:4.0, icon:'🍜'},
+  {name:'あんかけうどん',               kcal:340, carb:60, prot:10, fat:4.0, icon:'🍜'},
+  {name:'冷やしうどん',                 kcal:310, carb:60, prot:9.0, fat:1.5,icon:'🍜'},
+  {name:'そば（山かけ）',               kcal:340, carb:56, prot:14, fat:2.0, icon:'🍜'},
+  {name:'そば（とろろ）',               kcal:350, carb:58, prot:13, fat:2.0, icon:'🍜'},
+  {name:'そば（鴨南蛮）',               kcal:460, carb:56, prot:20, fat:14,  icon:'🍜'},
+  {name:'焼きうどん（1人前）',          kcal:440, carb:64, prot:16, fat:12,  icon:'🍳'},
+  {name:'皿うどん（長崎）',             kcal:480, carb:58, prot:20, fat:16,  icon:'🍳'},
+  {name:'にゅうめん（1人前）',          kcal:260, carb:48, prot:9.0, fat:3.0,icon:'🍜'},
+  {name:'ひやむぎ（1人前）',            kcal:280, carb:56, prot:8.0, fat:1.0,icon:'🍜'},
+  {name:'担々麺',                       kcal:580, carb:65, prot:24, fat:22,  icon:'🍜'},
+  {name:'台湾まぜそば',                 kcal:650, carb:72, prot:28, fat:24,  icon:'🍜'},
+  {name:'ジャージャー麺',               kcal:580, carb:68, prot:22, fat:20,  icon:'🍜'},
+
+  // ── 洋食追加 ──
+  {name:'ロールキャベツ（2個）',        kcal:280, carb:16, prot:16, fat:14,  icon:'🥬'},
+  {name:'タンシチュー（1人前）',        kcal:480, carb:16, prot:28, fat:32,  icon:'🍲'},
+  {name:'鶏のクリーム煮（1人前）',      kcal:420, carb:14, prot:26, fat:28,  icon:'🍗'},
+  {name:'サーモンのクリームソース',     kcal:480, carb:12, prot:28, fat:32,  icon:'🐠'},
+  {name:'牛肉のワイン煮込み（1人前）',  kcal:520, carb:14, prot:30, fat:32,  icon:'🥩'},
+  {name:'チキンのトマト煮込み',         kcal:380, carb:16, prot:28, fat:20,  icon:'🍗'},
+  {name:'ムサカ（1人前）',              kcal:460, carb:22, prot:20, fat:30,  icon:'🍆'},
+  {name:'ラザニア（1人前）',            kcal:520, carb:42, prot:24, fat:26,  icon:'🍝'},
+  {name:'リゾット（1人前）',            kcal:420, carb:56, prot:12, fat:14,  icon:'🍚'},
+  {name:'シーフードリゾット',           kcal:450, carb:56, prot:18, fat:14,  icon:'🍚'},
+  {name:'キッシュ（1切れ）',            kcal:320, carb:20, prot:10, fat:22,  icon:'🥧'},
+  {name:'ポトフ（1人前）',              kcal:240, carb:18, prot:16, fat:10,  icon:'🍲'},
+  {name:'フィッシュアンドチップス',     kcal:580, carb:52, prot:22, fat:28,  icon:'🐟'},
+  {name:'スコッチエッグ（1個）',        kcal:280, carb:10, prot:16, fat:20,  icon:'🥚'},
+
+  // ── 中華・アジア料理追加 ──
+  {name:'中華丼（1人前）',              kcal:560, carb:72, prot:20, fat:18,  icon:'🍚'},
+  {name:'天津飯（1人前）',              kcal:580, carb:74, prot:18, fat:20,  icon:'🍳'},
+  {name:'エビの塩炒め（1人前）',        kcal:220, carb:8.0,prot:18, fat:12,  icon:'🦐'},
+  {name:'レバニラ炒め（1人前）',        kcal:260, carb:10, prot:20, fat:14,  icon:'🥩'},
+  {name:'チンジャオロース（1人前）',    kcal:280, carb:10, prot:18, fat:18,  icon:'🫑'},
+  {name:'豚バラと白菜の炒め物',         kcal:320, carb:8.0,prot:18, fat:22,  icon:'🥬'},
+  {name:'ニラ卵炒め',                   kcal:220, carb:4.0,prot:14, fat:16,  icon:'🍳'},
+  {name:'トマトと卵の炒め物',           kcal:200, carb:8.0,prot:10, fat:14,  icon:'🍅'},
+  {name:'棒棒鶏（1人前）',              kcal:250, carb:10, prot:18, fat:16,  icon:'🍗'},
+  {name:'杏仁豆腐（1個）',              kcal:130, carb:22, prot:2.0, fat:4.0,icon:'🍮'},
+  {name:'ゴマ団子（3個）',              kcal:280, carb:42, prot:4.0, fat:10,  icon:'🍡'},
+  {name:'肉まん（1個）',                kcal:220, carb:34, prot:8.0, fat:6.0,icon:'🥟'},
+  {name:'あんまん（1個）',              kcal:250, carb:46, prot:5.0, fat:4.0,icon:'🥟'},
+  {name:'ピータン豆腐（1人前）',        kcal:140, carb:4.0,prot:9.0, fat:8.0,icon:'🥚'},
+  {name:'バクテー（肉骨茶）',           kcal:380, carb:8.0,prot:28, fat:26,  icon:'🍲'},
+  {name:'海南鶏飯（チキンライス）',     kcal:520, carb:62, prot:28, fat:14,  icon:'🍗'},
+  {name:'ナシゴレン（1人前）',          kcal:580, carb:68, prot:20, fat:22,  icon:'🍳'},
+  {name:'ミーゴレン（1人前）',          kcal:540, carb:64, prot:18, fat:20,  icon:'🍜'},
+  {name:'サテー（5本）',                kcal:280, carb:8.0,prot:22, fat:16,  icon:'🍢'},
+  {name:'生春巻き（2本）',              kcal:180, carb:22, prot:8.0, fat:6.0,icon:'🌯'},
+  {name:'フォーボー（牛肉）',           kcal:420, carb:58, prot:22, fat:10,  icon:'🍜'},
+  {name:'ガパオライス',                 kcal:580, carb:68, prot:24, fat:20,  icon:'🌿'},
+  {name:'トムヤムクン（1杯）',          kcal:180, carb:8.0,prot:14, fat:10,  icon:'🦐'},
+  {name:'マッサマンカレー（1人前）',    kcal:520, carb:28, prot:20, fat:34,  icon:'🍛'},
+  {name:'チェー（ベトナムスイーツ）',   kcal:220, carb:44, prot:3.0, fat:4.0,icon:'🍮'},
+
+  // ── インド・中東料理 ──
+  {name:'バターチキンカレー',            kcal:420, carb:18, prot:24, fat:26,  icon:'🍛'},
+  {name:'ナン（1枚）',                  kcal:260, carb:48, prot:8.0, fat:4.0,icon:'🫓'},
+  {name:'チャパティ（1枚）',            kcal:100, carb:20, prot:3.0, fat:1.0,icon:'🫓'},
+  {name:'サモサ（2個）',                kcal:280, carb:32, prot:6.0, fat:14,  icon:'🥟'},
+  {name:'ダル（豆カレー・1人前）',      kcal:280, carb:36, prot:14, fat:8.0, icon:'🍛'},
+  {name:'ラッシー（1杯）',              kcal:150, carb:20, prot:6.0, fat:4.0,icon:'🥛'},
+  {name:'チキンティッカマサラ',         kcal:380, carb:14, prot:28, fat:22,  icon:'🍛'},
+  {name:'ファラフェル（3個）',          kcal:220, carb:20, prot:8.0, fat:12,  icon:'🫘'},
+  {name:'フムス（大さじ3）',            kcal:130, carb:12, prot:6.0, fat:7.0,icon:'🫘'},
+  {name:'シャワルマ（1個）',            kcal:420, carb:38, prot:22, fat:18,  icon:'🌯'},
+
+  // ── イタリアン追加 ──
+  {name:'マルゲリータピザ（M・1枚）',   kcal:720, carb:88, prot:28, fat:24,  icon:'🍕'},
+  {name:'クワトロフォルマッジ（1切れ）',kcal:340, carb:28, prot:16, fat:18,  icon:'🍕'},
+  {name:'カプレーゼ（1人前）',          kcal:200, carb:4.0,prot:12, fat:14,  icon:'🍅'},
+  {name:'ブルスケッタ（2枚）',          kcal:180, carb:24, prot:4.0, fat:7.0,icon:'🥖'},
+  {name:'ミネストローネスープ',          kcal:120, carb:16, prot:4.0, fat:4.0,icon:'🍅'},
+  {name:'チキンのピカタ',               kcal:340, carb:8.0,prot:28, fat:20,  icon:'🍗'},
+  {name:'ティラミス（1個）',            kcal:350, carb:36, prot:6.0, fat:20,  icon:'🍰'},
+  {name:'パンナコッタ（1個）',          kcal:220, carb:24, prot:3.0, fat:12,  icon:'🍮'},
+  {name:'ジェラート（1スクープ）',      kcal:130, carb:20, prot:3.0, fat:4.0,icon:'🍦'},
+
+  // ── 朝食・ブランチ ──
+  {name:'フレンチトースト（2枚）',      kcal:380, carb:46, prot:12, fat:16,  icon:'🍞'},
+  {name:'エッグベネディクト（1人前）',  kcal:480, carb:30, prot:20, fat:28,  icon:'🍳'},
+  {name:'アボカドトースト',             kcal:320, carb:32, prot:8.0, fat:18,  icon:'🥑'},
+  {name:'グラノーラ（牛乳で・1杯）',    kcal:380, carb:54, prot:10, fat:12,  icon:'🥣'},
+  {name:'フルーツグラノーラ（1杯）',    kcal:350, carb:58, prot:8.0, fat:8.0,icon:'🥣'},
+  {name:'コーンフレーク（牛乳で）',     kcal:280, carb:50, prot:8.0, fat:4.0,icon:'🥣'},
+  {name:'スムージー（バナナ・豆乳）',   kcal:220, carb:38, prot:8.0, fat:4.0,icon:'🥤'},
+  {name:'アサイーボウル',               kcal:320, carb:48, prot:6.0, fat:10,  icon:'🫐'},
+  {name:'目玉焼きトースト',             kcal:280, carb:30, prot:12, fat:12,  icon:'🍳'},
+  {name:'ベーコンエッグ',               kcal:300, carb:1.0,prot:18, fat:24,  icon:'🥓'},
+  {name:'ハムエッグ',                   kcal:200, carb:1.0,prot:16, fat:14,  icon:'🍳'},
+  {name:'ホットケーキ（バター・シロップ）',kcal:450,carb:64,prot:9.0,fat:16, icon:'🥞'},
+
+  // ── スープ・汁物追加 ──
+  {name:'クラムチャウダー（1杯）',      kcal:200, carb:16, prot:8.0, fat:12,  icon:'🍵'},
+  {name:'フランスオニオンスープ',        kcal:180, carb:18, prot:6.0, fat:8.0, icon:'🧅'},
+  {name:'コンソメスープ（1杯）',        kcal:20,  carb:2.0,prot:2.0, fat:0.5, icon:'🍵'},
+  {name:'中華スープ（1杯）',            kcal:40,  carb:4.0,prot:3.0, fat:1.0, icon:'🍵'},
+  {name:'サンラータン（1杯）',          kcal:100, carb:8.0,prot:6.0, fat:4.0, icon:'🍵'},
+  {name:'ポタージュ（1杯）',            kcal:150, carb:16, prot:4.0, fat:7.0, icon:'🍵'},
+  {name:'チキンスープ（1杯）',          kcal:80,  carb:4.0,prot:8.0, fat:3.0, icon:'🍵'},
+  {name:'トマトスープ（1杯）',          kcal:90,  carb:12, prot:3.0, fat:3.0, icon:'🍅'},
+  {name:'レンズ豆のスープ（1杯）',      kcal:160, carb:22, prot:9.0, fat:3.0, icon:'🫘'},
+  {name:'参鶏湯（サムゲタン・1人前）',  kcal:420, carb:22, prot:34, fat:18,   icon:'🍲'},
+
+  // ── サラダ追加 ──
+  {name:'ニース風サラダ',               kcal:280, carb:12, prot:16, fat:18,  icon:'🥗'},
+  {name:'タコスサラダ',                 kcal:320, carb:22, prot:16, fat:18,  icon:'🥗'},
+  {name:'ギリシャサラダ',               kcal:200, carb:10, prot:6.0, fat:14,  icon:'🥗'},
+  {name:'ワカモレ（大さじ3）',          kcal:120, carb:6.0,prot:1.5, fat:10,  icon:'🥑'},
+  {name:'コブサラダ',                   kcal:350, carb:10, prot:22, fat:24,  icon:'🥗'},
+  {name:'キノアサラダ',                 kcal:280, carb:34, prot:10, fat:10,  icon:'🥗'},
+  {name:'スモークサーモンサラダ',       kcal:220, carb:6.0,prot:18, fat:14,  icon:'🥗'},
+  {name:'温野菜サラダ',                 kcal:120, carb:14, prot:4.0, fat:4.0,icon:'🥗'},
+  {name:'大根サラダ（ドレッシング）',   kcal:80,  carb:10, prot:1.0, fat:3.0,icon:'🥗'},
+  {name:'わかめサラダ',                 kcal:40,  carb:4.0,prot:2.0, fat:1.5,icon:'🌿'},
+
+  // ── おつまみ・居酒屋メニュー ──
+  {name:'枝豆（1皿）',                  kcal:135, carb:8.8,prot:12, fat:6.2, icon:'🫘'},
+  {name:'冷奴（ねぎ・かつお）',         kcal:80,  carb:2.0,prot:8.0, fat:4.0,icon:'🥄'},
+  {name:'だし巻き玉子（1本）',          kcal:120, carb:4.0,prot:8.0, fat:7.0,icon:'🍳'},
+  {name:'焼き鳥（もも・2本）',          kcal:200, carb:4.0,prot:18, fat:12,  icon:'🍢'},
+  {name:'焼き鳥（ねぎま・2本）',        kcal:180, carb:5.0,prot:16, fat:10,  icon:'🍢'},
+  {name:'焼き鳥（手羽先・2本）',        kcal:260, carb:2.0,prot:18, fat:20,  icon:'🍢'},
+  {name:'唐揚げポン酢（3個）',          kcal:280, carb:14, fat:18, prot:20,  icon:'🍗'},
+  {name:'ポテトフライ（居酒屋）',       kcal:380, carb:46, prot:4.0, fat:18,  icon:'🍟'},
+  {name:'フライドチキン（居酒屋）',     kcal:420, carb:18, prot:26, fat:28,  icon:'🍗'},
+  {name:'砂肝ポン酢（1人前）',          kcal:120, carb:4.0,prot:16, fat:4.0, icon:'🥩'},
+  {name:'牛すじ煮込み（1人前）',        kcal:220, carb:8.0,prot:18, fat:12,  icon:'🥩'},
+  {name:'もつ煮（1人前）',              kcal:200, carb:8.0,prot:16, fat:11,  icon:'🍲'},
+  {name:'刺身盛り（5種・1人前）',       kcal:250, carb:2.0,prot:36, fat:7.0, icon:'🐠'},
+  {name:'焼きほっけ（1尾）',            kcal:280, carb:0.1,prot:26, fat:18,  icon:'🐟'},
+  {name:'漬け物盛り合わせ',             kcal:40,  carb:7.0,prot:1.5, fat:0.3,icon:'🥒'},
+
+  // ── コンビニ・テイクアウト追加 ──
+  {name:'コンビニ焼きそばパン',         kcal:380, carb:58, prot:10, fat:12,  icon:'🍞'},
+  {name:'コンビニ焼きそば（1袋）',      kcal:430, carb:62, prot:12, fat:14,  icon:'🍳'},
+  {name:'コンビニ冷凍チャーハン',       kcal:480, carb:68, prot:14, fat:16,  icon:'🍳'},
+  {name:'コンビニパスタ（明太子）',     kcal:520, carb:68, prot:18, fat:18,  icon:'🍝'},
+  {name:'コンビニ唐揚げ棒（1本）',      kcal:200, carb:12, prot:12, fat:12,  icon:'🍗'},
+  {name:'コンビニおでん（5種）',        kcal:200, carb:16, prot:12, fat:6.0, icon:'🍢'},
+  {name:'コンビニ豚汁（1杯）',          kcal:100, carb:8.0,prot:6.0, fat:4.0,icon:'🍵'},
+  {name:'コンビニざるそば',             kcal:320, carb:60, prot:14, fat:2.0, icon:'🍜'},
+  {name:'コンビニ冷やし中華',           kcal:420, carb:66, prot:14, fat:10,  icon:'🍜'},
+  {name:'コンビニ弁当（のり弁）',       kcal:650, carb:88, prot:18, fat:18,  icon:'🍱'},
+  {name:'コンビニ弁当（幕の内）',       kcal:700, carb:90, prot:25, fat:20,  icon:'🍱'},
+  {name:'コンビニおにぎり（天むす）',   kcal:210, carb:36, prot:6.0, fat:5.0,icon:'🍙'},
+  {name:'コンビニスープ（コーン）',     kcal:110, carb:16, prot:3.0, fat:4.0,icon:'🍵'},
+
+  // ── 乳製品・チーズ追加 ──
+  {name:'モッツァレラチーズ（50g）',    kcal:130, carb:0.5,prot:8.0, fat:10,  icon:'🧀'},
+  {name:'クリームチーズ（30g）',        kcal:100, carb:1.0,prot:2.0, fat:10,  icon:'🧀'},
+  {name:'パルメザンチーズ（大さじ1）',  kcal:40,  carb:0.4,prot:4.0, fat:3.0, icon:'🧀'},
+  {name:'チーズケーキ（ベイクド）',     kcal:340, carb:26, prot:8.0, fat:22,  icon:'🧁'},
+  {name:'バター（10g）',                kcal:74,  carb:0.0,prot:0.1, fat:8.2, icon:'🧈'},
+  {name:'マーガリン（10g）',            kcal:76,  carb:0.0,prot:0.1, fat:8.3, icon:'🧈'},
+  {name:'生クリーム（大さじ2）',        kcal:90,  carb:0.8,prot:0.8, fat:9.0, icon:'🥛'},
+
+  // ── 健康・ダイエット食品 ──
+  {name:'もずく酢（1パック）',          kcal:14,  carb:2.5,prot:0.3, fat:0.0, icon:'🌿'},
+  {name:'めかぶ（1パック）',            kcal:12,  carb:2.0,prot:0.6, fat:0.1, icon:'🌿'},
+  {name:'こんにゃく（100g）',           kcal:5,   carb:1.0,prot:0.1, fat:0.0, icon:'⬛'},
+  {name:'しらたき（100g）',             kcal:6,   carb:1.0,prot:0.2, fat:0.0, icon:'🍜'},
+  {name:'豆腐そうめん風（1食）',        kcal:80,  carb:3.0,prot:8.0, fat:3.5, icon:'🍜'},
+  {name:'サラダチキンスティック（1袋）',kcal:85,  carb:0.5,prot:18, fat:1.0,  icon:'🍗'},
+  {name:'プロテインゼリー（1個）',      kcal:60,  carb:4.0,prot:10, fat:0.5,  icon:'🥤'},
+  {name:'低糖質パン（1枚）',            kcal:80,  carb:8.0,prot:6.0, fat:3.0, icon:'🍞'},
+  {name:'おからパウダー（大さじ2）',    kcal:54,  carb:5.0,prot:4.0, fat:2.0, icon:'🫘'},
+  {name:'チアシード（大さじ1）',        kcal:60,  carb:5.0,prot:2.0, fat:4.0, icon:'🌱'},
+  {name:'アボカドサラダ',               kcal:180, carb:6.0,prot:3.0, fat:16,   icon:'🥑'},
+  {name:'蒸し鶏サラダ',                 kcal:160, carb:4.0,prot:22, fat:6.0,  icon:'🍗'},
+  {name:'玄米おにぎり（1個）',          kcal:185, carb:38, prot:3.5, fat:0.8, icon:'🍙'},
+  {name:'全粒粉パン（1枚）',            kcal:130, carb:24, prot:5.0, fat:2.0, icon:'🍞'},
+];
+
+// 検索関数：入力に部分一致する候補を返す
+function searchFoods(query) {
+  if (!query || query.length < 1) return [];
+  const q = query.toLowerCase().trim();
+  return FOOD_DB.filter(f => f.name.toLowerCase().includes(q)).slice(0, 6);
+}
+
+// ────────────────────────────────────────────
+// MODE SWITCH (search / manual)
+// ────────────────────────────────────────────
+function switchMode(mode) {
+  document.getElementById('modeSearch').classList.toggle('active', mode === 'search');
+  document.getElementById('modeManual').classList.toggle('active', mode === 'manual');
+  document.getElementById('panelSearch').style.display = mode === 'search' ? 'block' : 'none';
+  document.getElementById('panelManual').style.display = mode === 'manual' ? 'block' : 'none';
+  // clear state
+  document.getElementById('foodInput').value = '';
+  document.getElementById('suggestions').style.display = 'none';
+  document.getElementById('searchResult').innerHTML = '';
+  document.getElementById('searchResult').style.display = 'none';
+}
+
+// ────────────────────────────────────────────
+// SEARCH MODE
+// ────────────────────────────────────────────
+let selectedFood = null; // 現在プレビュー中の食品
+
+function onFoodInput() {
+  const q = document.getElementById('foodInput').value.trim();
+  const box = document.getElementById('suggestions');
+  const results = searchFoods(q);
+  selectedFood = null;
+  document.getElementById('searchResult').style.display = 'none';
+  document.getElementById('searchResult').innerHTML = '';
+
+  if (!q || !results.length) { box.style.display = 'none'; return; }
+
+  box.style.display = 'block';
+  box.innerHTML = results.map((f, i) => `
+    <div class="suggestion-item" onclick="selectFood(${i}, ${JSON.stringify(f).replace(/"/g,'&quot;')})">
+      <div>
+        <div class="suggestion-name">${f.icon} ${f.name}</div>
+        <div class="suggestion-note">P:${f.prot}g / C:${f.carb}g / F:${f.fat}g</div>
+      </div>
+      <div class="suggestion-kcal">${f.kcal} kcal</div>
+    </div>`).join('');
+}
+
+function selectFood(i, food) {
+  selectedFood = { ...food };
+  document.getElementById('foodInput').value = food.name;
+  document.getElementById('suggestions').style.display = 'none';
+  showFoodPreview(food);
+}
+
+async function lookupFood() {
+  const q = document.getElementById('foodInput').value.trim();
+  if (!q) return;
+  document.getElementById('suggestions').style.display = 'none';
+
+  const results = searchFoods(q);
+  if (results.length > 0) {
+    // DBヒット → そのまま表示
+    selectedFood = { ...results[0] };
+    showFoodPreview(results[0], 'db');
+  } else {
+    // DBミス → AI+Web検索にフォールバック
+    showFoodPreviewLoading(q);
+    const food = await searchCaloriesWithAI(q);
+    selectedFood = food;
+    showFoodPreview(food, 'ai');
+  }
+}
+
+// AI + Web検索でカロリーを調べる
+async function searchCaloriesWithAI(name) {
+  const system = `あなたは栄養士AIです。ユーザーが指定した料理・食品のカロリーと栄養素を、
+一般的な栄養成分データベースや食品標準成分表の知識をもとに正確に回答してください。
+必ず以下のJSON形式のみで返答（前置き・説明・マークダウン不要）:
+{"name":"料理名","kcal":数値,"carb":数値,"prot":数値,"fat":数値,"icon":"絵文字1文字","source":"参考情報（例：文部科学省食品成分表、一般的な栄養データより）"}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system,
+        messages: [{ role: 'user', content: `「${name}」のカロリーと栄養素を調べてください。` }]
+      })
+    });
+    const data = await res.json();
+    // テキストブロックを結合してJSONを取得
+    const text = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text).join('');
+    const json = JSON.parse(text.replace(/```json|```/g, '').trim());
+    return {
+      name: json.name || name,
+      kcal: json.kcal || 0,
+      carb: json.carb || 0,
+      prot: json.prot || 0,
+      fat:  json.fat  || 0,
+      icon: json.icon || '🍽',
+      source: json.source || 'AI調査',
+    };
+  } catch {
+    // AI失敗時はキーワード推定にフォールバック
+    return estimateCalories(name);
+  }
+}
+
+// ローディング表示
+function showFoodPreviewLoading(name) {
+  const el = document.getElementById('searchResult');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+      <span style="font-size:24px">🔍</span>
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">「${name}」をAIで調査中...</div>
+        <div style="font-size:12px;color:var(--gray)">インターネット上の栄養データを検索しています</div>
+      </div>
+      <span class="dots" style="margin-left:auto"><span></span><span></span><span></span></span>
+    </div>`;
+}
+
+// 名前から簡易推定（AI失敗時の最終フォールバック）
+function estimateCalories(name) {
+  const rules = [
+    { k:['ラーメン','らーめん'],            kcal:500, carb:65, prot:18, fat:15, icon:'🍜' },
+    { k:['カレー'],                         kcal:650, carb:88, prot:18, fat:18, icon:'🍛' },
+    { k:['丼','どんぶり'],                  kcal:600, carb:80, prot:22, fat:15, icon:'🍚' },
+    { k:['パスタ','スパゲ'],                kcal:420, carb:65, prot:12, fat:10, icon:'🍝' },
+    { k:['ピザ'],                           kcal:300, carb:35, prot:12, fat:11, icon:'🍕' },
+    { k:['サラダ','野菜'],                  kcal:60,  carb:8,  prot:2,  fat:2,  icon:'🥗' },
+    { k:['ご飯','ごはん','白米','玄米'],     kcal:252, carb:55, prot:4,  fat:0.5,icon:'🍚' },
+    { k:['パン','トースト'],                kcal:160, carb:30, prot:5,  fat:3,  icon:'🍞' },
+    { k:['肉','ステーキ','焼肉'],           kcal:400, carb:2,  prot:25, fat:30, icon:'🥩' },
+    { k:['魚','焼き魚','刺身'],             kcal:180, carb:0,  prot:25, fat:6,  icon:'🐟' },
+    { k:['卵','たまご','エッグ'],           kcal:90,  carb:0.5,prot:7,  fat:6,  icon:'🥚' },
+    { k:['スープ','汁','みそ'],             kcal:50,  carb:5,  prot:3,  fat:2,  icon:'🍵' },
+    { k:['ケーキ','スイーツ','デザート'],   kcal:300, carb:40, prot:4,  fat:12, icon:'🍰' },
+    { k:['コーヒー','紅茶','お茶'],         kcal:5,   carb:1,  prot:0,  fat:0,  icon:'☕' },
+    { k:['ジュース','ドリンク'],            kcal:100, carb:25, prot:0,  fat:0,  icon:'🧃' },
+  ];
+  const n = name.toLowerCase();
+  for (const r of rules) {
+    if (r.k.some(k => n.includes(k))) {
+      return { name, kcal:r.kcal, carb:r.carb, prot:r.prot, fat:r.fat, icon:r.icon, source:'キーワード推定' };
+    }
+  }
+  return { name, kcal:300, carb:30, prot:10, fat:10, icon:'🍽', source:'キーワード推定' };
+}
+
+function showFoodPreview(food, sourceType = 'db') {
+  const mealLabel = MEALS[currentMeal].label;
+  const el = document.getElementById('searchResult');
+  const sourceLabel =
+    sourceType === 'db'  ? '<span style="color:var(--green)">✓ データベース参照値</span>' :
+    sourceType === 'ai'  ? `<span style="color:var(--blue)">🌐 AI調査結果（${food.source || 'Web検索'}）</span>` :
+                           '<span style="color:var(--yellow)">⚠️ キーワード推定値</span>';
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <span style="font-size:28px">${food.icon}</span>
+      <div>
+        <div style="font-size:15px;font-weight:700">${food.name}</div>
+        <div style="font-size:11px;margin-top:2px">${sourceLabel}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--gray)">カロリー</span>
+      <input type="number" id="previewKcal" value="${food.kcal}" min="0"
+        style="width:90px;background:var(--bg2);border:1px solid var(--green);
+               color:var(--green);font-family:'JetBrains Mono',monospace;
+               font-size:20px;font-weight:700;border-radius:8px;
+               padding:4px 8px;text-align:right;outline:none;">
+      <span style="font-size:13px;color:var(--gray)">kcal（編集可）</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--gray);background:var(--bg2);border-radius:6px;padding:4px 8px">
+        タンパク質 <span style="color:var(--white);font-weight:600">${food.prot}g</span>
+      </span>
+      <span style="font-size:12px;color:var(--gray);background:var(--bg2);border-radius:6px;padding:4px 8px">
+        炭水化物 <span style="color:var(--white);font-weight:600">${food.carb}g</span>
+      </span>
+      <span style="font-size:12px;color:var(--gray);background:var(--bg2);border-radius:6px;padding:4px 8px">
+        脂質 <span style="color:var(--white);font-weight:600">${food.fat}g</span>
+      </span>
+    </div>
+    <button class="btn" style="width:100%" onclick="registerSearchFood()">
+      ✚ ${mealLabel}に記録する
+    </button>`;
+}
+
+function registerSearchFood() {
+  if (!selectedFood) return;
+  const kcal = parseInt(document.getElementById('previewKcal').value) || selectedFood.kcal;
+  const item = { ...selectedFood, kcal };
+  addFoodItems([item], '');
+  // reset
+  document.getElementById('foodInput').value = '';
+  document.getElementById('searchResult').style.display = 'none';
+  document.getElementById('searchResult').innerHTML = '';
+  selectedFood = null;
+}
+
+// ────────────────────────────────────────────
+// MANUAL MODE
+// ────────────────────────────────────────────
+function addManual() {
+  const name = document.getElementById('manualName').value.trim();
+  const kcal = parseInt(document.getElementById('manualKcal').value);
+  if (!name) { alert('料理名を入力してください'); return; }
+  if (!kcal || kcal <= 0) { alert('カロリーを入力してください'); return; }
+  const prot = parseFloat(document.getElementById('manualProt').value) || 0;
+  const carb = parseFloat(document.getElementById('manualCarb').value) || 0;
+  addFoodItems([{ name, kcal, prot, carb, fat: 0, icon: '🍽' }], '');
+  // reset
+  document.getElementById('manualName').value = '';
+  document.getElementById('manualKcal').value = '';
+  document.getElementById('manualProt').value = '';
+  document.getElementById('manualCarb').value = '';
+}
+
+// ────────────────────────────────────────────
+// WORKOUT
+// ────────────────────────────────────────────
+const WORKOUTS = {
+  beginner: [
+    { name:'スクワット', sets:'3セット × 10回', desc:'大腿四頭筋・臀部', icon:'🦵' },
+    { name:'腕立て伏せ', sets:'3セット × 10回', desc:'胸・三頭筋', icon:'💪' },
+    { name:'プランク', sets:'3セット × 30秒', desc:'体幹全般', icon:'🧘' },
+    { name:'ランジ', sets:'3セット × 10回/脚', desc:'脚・臀部', icon:'🏃' },
+    { name:'ヒップリフト', sets:'3セット × 15回', desc:'臀部・ハムストリング', icon:'🍑' },
+    { name:'マウンテンクライマー', sets:'3セット × 20回', desc:'体幹・有酸素', icon:'⛰️' },
+  ],
+  intermediate: [
+    { name:'ブルガリアンスクワット', sets:'4セット × 12回', desc:'臀部・ハムスト強化', icon:'🦵' },
+    { name:'ダンベルベンチプレス', sets:'4セット × 10回', desc:'大胸筋・肩', icon:'💪' },
+    { name:'デッドリフト', sets:'4セット × 8回', desc:'背面全体', icon:'🏋️' },
+    { name:'チンアップ', sets:'4セット × 6回', desc:'広背筋・上腕二頭筋', icon:'🤸' },
+    { name:'サイドプランク', sets:'3セット × 45秒', desc:'体幹・外腹斜筋', icon:'🧘' },
+    { name:'ケトルベルスウィング', sets:'4セット × 15回', desc:'全身・爆発力', icon:'🔔' },
+  ],
+  advanced: [
+    { name:'バーベルバックスクワット', sets:'5セット × 5回', desc:'全身複合動作', icon:'🦵' },
+    { name:'ベンチプレス', sets:'5セット × 5回', desc:'胸・三頭・肩', icon:'💪' },
+    { name:'デッドリフト', sets:'5セット × 3回', desc:'背面・臀部・体幹', icon:'🏋️' },
+    { name:'ウェイテッドチンアップ', sets:'4セット × 8回', desc:'広背筋・二頭', icon:'🤸' },
+    { name:'オーバーヘッドプレス', sets:'4セット × 6回', desc:'肩・三頭・体幹', icon:'⬆️' },
+    { name:'ボックスジャンプ', sets:'4セット × 8回', desc:'爆発的脚力', icon:'📦' },
+  ]
+};
+
+function updateWorkout() {
+  const cw = parseFloat(document.getElementById('currentWeight').value);
+  const tw = parseFloat(document.getElementById('targetWeight').value);
+  const h  = parseFloat(document.getElementById('height').value);
+  const lv = document.getElementById('level').value;
+
+  // 入力値を自動保存
+  const data = loadData();
+  data.profile = { cw: cw||null, tw: tw||null, h: h||null, lv };
+  // 体重を日付付きで記録（履歴で体重推移を追えるように）
+  if (cw) {
+    if (!data.weightLog) data.weightLog = {};
+    data.weightLog[todayKey()] = cw;
+  }
+  saveData(data);
+
+  if (!cw || !h) return;
+  document.getElementById('bodyStats').style.display = 'grid';
+  const bmi = (cw / ((h/100)**2)).toFixed(1);
+  const diff = tw ? (cw - tw).toFixed(1) : '—';
+  const tdee = Math.round(cw * 22 * 1.4);
+  document.getElementById('bmiVal').textContent = bmi;
+  document.getElementById('diffVal').textContent = diff > 0 ? `-${diff}` : diff === '—' ? '—' : `+${Math.abs(diff)}`;
+  document.getElementById('tdeeVal').textContent = tdee;
+}
+
+function restoreProfile() {
+  const data = loadData();
+  const p = data.profile;
+  if (!p) return;
+  if (p.cw) document.getElementById('currentWeight').value = p.cw;
+  if (p.tw) document.getElementById('targetWeight').value  = p.tw;
+  if (p.h)  document.getElementById('height').value        = p.h;
+  if (p.lv) document.getElementById('level').value         = p.lv;
+  // 値が復元されたらUIも更新
+  if (p.cw && p.h) updateWorkout();
+}
+
+async function generateWorkoutPlan() {
+  const cw = document.getElementById('currentWeight').value;
+  const tw = document.getElementById('targetWeight').value;
+  const h  = document.getElementById('height').value;
+  const lv = document.getElementById('level').value;
+  if (!cw) { alert('現在の体重を入力してください'); return; }
+
+  const level = lv;
+  const workouts = WORKOUTS[level];
+  document.getElementById('workoutSection').style.display = 'block';
+  document.getElementById('workoutResult').style.display = 'block';
+  document.getElementById('workoutResultBody').innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+
+  // Render workout cards
+  workoutDone = {};
+  document.getElementById('workoutGrid').innerHTML = workouts.map((w,i) => `
+    <div class="workout-card ${level}">
+      <span class="workout-tag">${level==='beginner'?'初心者':level==='intermediate'?'中級者':'上級者'}</span>
+      <div class="workout-name">${w.icon} ${w.name}</div>
+      <div class="workout-sets">${w.sets}</div>
+      <div style="font-size:12px;color:var(--gray)">${w.desc}</div>
+      <button class="workout-done-btn" id="done-${i}" onclick="toggleDone(${i},'${w.name}')">完了としてマーク</button>
+    </div>`).join('');
+
+  // AI Plan
+  const levelName = level==='beginner'?'初心者':level==='intermediate'?'中級者':'上級者';
+  const system = `あなたはパーソナルトレーナーAIです。ユーザーの体重・目標をもとに、ポイントを日本語で簡潔に（150字以内）アドバイスしてください。`;
+  const msg = `現在体重:${cw}kg、目標体重:${tw||'未設定'}kg、身長:${h||'未設定'}cm、レベル:${levelName}`;
+  try {
+    const res = await callClaude(system, msg);
+    document.getElementById('workoutResultBody').innerHTML = res;
+  } catch {
+    document.getElementById('workoutResultBody').innerHTML = '体組成を分析しました。左記のメニューを今日のトレーニングとして頑張りましょう！';
+  }
+}
+
+function toggleDone(i, name) {
+  const btn = document.getElementById('done-'+i);
+  workoutDone[name] = !workoutDone[name];
+  btn.textContent = workoutDone[name] ? '✓ 完了！' : '完了としてマーク';
+  btn.classList.toggle('done', workoutDone[name]);
+  // Update storage
+  const data = loadData();
+  const key = todayKey();
+  if (!data.logs[key]) data.logs[key] = { kcal:0, carb:0, prot:0, fat:0, workoutDone:{} };
+  data.logs[key].workoutDone = { ...workoutDone };
+  saveData(data);
+}
+
+// ────────────────────────────────────────────
+// HISTORY
+// ────────────────────────────────────────────
+function renderHistory() {
+  const data = loadData();
+  const logs = data.logs;
+  const keys = Object.keys(logs).sort().reverse();
+
+  // Week grid
+  const days = ['月','火','水','木','金','土','日'];
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay() + 1);
+  let weekHTML = '';
+  for (let i=0; i<7; i++) {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate()+i);
+    const key = d.toISOString().slice(0,10);
+    const log = logs[key];
+    let cls='', emoji='○';
+    if (log) {
+      if (log.kcal <= GOAL_KCAL * 1.05) { cls='done'; emoji='✓'; }
+      else if (log.kcal <= GOAL_KCAL * 1.15) { cls='warn'; emoji='△'; }
+      else { cls='over'; emoji='✕'; }
+    }
+    weekHTML += `<div class="week-day"><div class="week-day-label">${days[i]}</div><div class="week-dot ${cls}">${emoji}</div></div>`;
+  }
+  document.getElementById('weekGrid').innerHTML = weekHTML;
+
+  // History list
+  const histEl = document.getElementById('historyList');
+  if (!keys.length) {
+    histEl.innerHTML = '<div class="card" style="color:var(--gray);text-align:center;padding:32px">まだ記録がありません。食事を記録してみましょう！</div>';
+    return;
+  }
+  histEl.innerHTML = keys.slice(0,7).map(k => {
+    const log = logs[k];
+    const kcalColor = log.kcal > GOAL_KCAL*1.1 ? 'var(--red)' : log.kcal > GOAL_KCAL*.9 ? 'var(--yellow)' : 'var(--green)';
+    const badgeCls = log.kcal > GOAL_KCAL*1.1 ? 'badge-over' : log.kcal > GOAL_KCAL*.9 ? 'badge-warn' : 'badge-good';
+    const badgeTxt = log.kcal > GOAL_KCAL*1.1 ? '超過' : log.kcal > GOAL_KCAL*.9 ? '目標内' : '良好';
+    const doneCount = log.workoutDone ? Object.values(log.workoutDone).filter(Boolean).length : 0;
+    const mealRows = log.meals ? Object.entries({breakfast:'🌅 朝食',lunch:'☀️ 昼食',dinner:'🌙 夕食',snack:'🍫 その他'}).map(([key,label]) => {
+      const foods = (log.meals[key]?.items || log.meals[key] || []);
+      if (!foods.length) return '';
+      const mkcal = foods.reduce((s,f)=>s+f.kcal,0);
+      return `<div class="history-row"><span style="padding-left:8px">${label}</span><span>${mkcal} kcal (${foods.map(f=>f.name).join('、')})</span></div>`;
+    }).join('') : '';
+    return `<div class="history-day">
+      <div class="history-date">${k}<span class="history-badge ${badgeCls}">${badgeTxt}</span></div>
+      <div class="history-row"><span>合計カロリー</span><span style="color:${kcalColor}">${log.kcal} kcal</span></div>
+      ${mealRows}
+      <div class="history-row" style="margin-top:6px"><span>タンパク質 / 炭水化物 / 脂質</span><span>${Math.round(log.prot||0)}g / ${Math.round(log.carb||0)}g / ${Math.round(log.fat||0)}g</span></div>
+      <div class="history-row"><span>筋トレ完了</span><span style="color:${doneCount>0?'var(--green)':'var(--gray)'}">${doneCount} 種目</span></div>
+    </div>`;
+  }).join('');
+}
+
+async function generateAIAdvice() {
+  const data = loadData();
+  const logs = data.logs;
+  const keys = Object.keys(logs).sort().reverse().slice(0,7);
+  if (!keys.length) { alert('記録がありません'); return; }
+
+  document.getElementById('aiAdvice').style.display = 'block';
+  document.getElementById('adviceBody').innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+
+  const summary = keys.map(k => {
+    const l = logs[k];
+    return `${k}: ${l.kcal}kcal（P:${Math.round(l.prot||0)}g/C:${Math.round(l.carb||0)}g/F:${Math.round(l.fat||0)}g）筋トレ:${Object.values(l.workoutDone||{}).filter(Boolean).length}種目`;
+  }).join('\n');
+
+  const system = `あなたはAIパーソナルコーチです。ユーザーの直近の食事・筋トレデータを分析して、改善点・称賛・次のアクションを日本語で200字以内で伝えてください。親しみやすく、具体的に。`;
+  try {
+    const res = await callClaude(system, `直近データ:\n${summary}`);
+    document.getElementById('adviceBody').textContent = res;
+  } catch {
+    document.getElementById('adviceBody').textContent = 'データを分析しました。継続的な記録がトレーニング成果の鍵です！';
+  }
+}
+
+// ────────────────────────────────────────────
+// CLAUDE API
+// ────────────────────────────────────────────
+async function callClaude(system, userMsg) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+  const data = await res.json();
+  return data.content.map(b => b.text||'').join('');
+}
+
+async function callClaudeWithImage(system, base64, mediaType) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: 'この食事のカロリーと栄養素を推定してください。' }
+        ]
+      }]
+    })
+  });
+  const data = await res.json();
+  return data.content.map(b => b.text||'').join('');
+}
+
+// ────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  updateCalorieUI();
+  restoreProfile();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+});
+</script>
+</body>
+</html>
